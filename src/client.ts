@@ -7,16 +7,14 @@ import type {
 
 export class AbClient {
   private ripple: Ripple;
-  private sessionId: string;
   private eventHandlers: Map<string, Function[]> = new Map();
   private openHandler: ((client: AbClient) => void) | null = null;
 
   constructor(host: string, port: number, sessionId: string) {
-    this.sessionId = sessionId;
     const url = `ws://${host}:${port}/ws/agentic-browser?token=${sessionId}`;
     this.ripple = new Ripple(url);
     this.ripple.onOpen(() => {
-      this.ripple.registerHandler(this.sessionId, (body: any, err: any) => {
+      this.ripple.registerHandler('serverEventPushed', (body: any, err: any) => {
         if (err) {
           console.error('Push error:', err);
           return;
