@@ -45,5 +45,8 @@ Runs the test suite with Vitest.
 
 ## Specifications
 
-- Application Design Spec: [2026-06-10-webui-design.md](file:///Users/ume/git.ssd/pharo-agentic-browser/docs/superpowers/specs/2026-06-10-webui-design.md)
-- Protocol Reference: [web-ui-api.md](file:///Users/ume/git.ssd/pharo-agentic-browser/docs/web-ui-api.md)
+- Protocol Reference: [web-ui-api.md](https://github.com/mumez/pharo-agentic-browser/blob/main/docs//web-ui-api.md)
+
+## License
+
+MIT
