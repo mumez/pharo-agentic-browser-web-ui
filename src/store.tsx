@@ -112,14 +112,17 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     client.onEvent('messageAdded', (message: MessageData) => {
       setState('messages', (prev) => {
-        // Prevent duplicates
-        const isDuplicate = prev.some(
-          (m) =>
-            m.text === message.text &&
-            m.sender === message.sender &&
-            m.lastUpdated === message.lastUpdated
-        );
-        if (isDuplicate) return prev;
+        if (prev.length > 0) {
+          const last = prev[prev.length - 1];
+          // Streaming update: same sender+type and text is growing
+          if (
+            last.sender === message.sender &&
+            last.type === message.type &&
+            message.text.startsWith(last.text)
+          ) {
+            return [...prev.slice(0, -1), message];
+          }
+        }
         return [...prev, message];
       });
     });

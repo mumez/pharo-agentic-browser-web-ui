@@ -9,14 +9,12 @@ export class AbClient {
   private ripple: Ripple;
   private sessionId: string;
   private eventHandlers: Map<string, Function[]> = new Map();
+  private openHandler: ((client: AbClient) => void) | null = null;
 
   constructor(host: string, port: number, sessionId: string) {
     this.sessionId = sessionId;
     const url = `ws://${host}:${port}/ws/agentic-browser?token=${sessionId}`;
     this.ripple = new Ripple(url);
-  }
-
-  onOpen(handler: (client: AbClient) => void) {
     this.ripple.onOpen(() => {
       this.ripple.registerHandler(this.sessionId, (body: any, err: any) => {
         if (err) {
@@ -32,8 +30,12 @@ export class AbClient {
         }
         this.handleTopicsUpdated(body);
       });
-      handler(this);
+      if (this.openHandler) this.openHandler(this);
     });
+  }
+
+  onOpen(handler: (client: AbClient) => void) {
+    this.openHandler = handler;
   }
 
   onClose(handler: () => void) {

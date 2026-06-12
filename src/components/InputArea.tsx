@@ -4,19 +4,16 @@ import { useAb } from '../store';
 export default function InputArea() {
   const { state, selectedTopic, sendPrompt, cancelPrompt } = useAb();
   const [inputText, setInputText] = createSignal('');
+  let textareaRef: HTMLTextAreaElement | undefined;
 
   const handleSend = () => {
     const text = inputText().trim();
     if (!text) return;
-    
+
     sendPrompt(text);
     setInputText('');
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    if (textareaRef) {
+      textareaRef.style.height = 'auto';
     }
   };
 
@@ -47,14 +44,13 @@ export default function InputArea() {
               }
               value={inputText()}
               onInput={(e) => setInputText(e.currentTarget.value)}
-              onKeyDown={handleKeyDown}
               disabled={isWorking()}
               rows={1}
               style={{
                 height: 'auto',
               }}
               ref={(el) => {
-                // Auto resize height based on content
+                textareaRef = el;
                 el.addEventListener('input', () => {
                   el.style.height = 'auto';
                   el.style.height = `${el.scrollHeight}px`;

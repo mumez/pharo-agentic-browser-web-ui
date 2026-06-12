@@ -138,7 +138,6 @@ describe('AbClient', () => {
   });
 
   it('should receive messages chunk via getAllMessages', async () => {
-    client.onOpen(() => {}); // registers sessionId push handler
     await new Promise((resolve) => setTimeout(resolve, 10));
     const ws = MockWebSocket.lastInstance()!;
 
@@ -179,7 +178,6 @@ describe('AbClient', () => {
   });
 
   it('should send register for topicsUpdated on connect', async () => {
-    client.onOpen(() => {});
     await new Promise((resolve) => setTimeout(resolve, 10));
     const ws = MockWebSocket.lastInstance()!;
 
@@ -189,7 +187,6 @@ describe('AbClient', () => {
   });
 
   it('should fire topicsUpdated event on publish', async () => {
-    client.onOpen(() => {});
     await new Promise((resolve) => setTimeout(resolve, 10));
     const ws = MockWebSocket.lastInstance()!;
 
@@ -206,7 +203,6 @@ describe('AbClient', () => {
   });
 
   it('should handle push events for messageAdded and statusChanged', async () => {
-    client.onOpen(() => {}); // registers sessionId push handler
     await new Promise((resolve) => setTimeout(resolve, 10));
     const ws = MockWebSocket.lastInstance()!;
 
