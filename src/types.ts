@@ -104,10 +104,16 @@ export interface TopicAddedEvent {
   topic: TopicData;
 }
 
+export interface TopicsUpdatedEvent {
+  event: 'topicsUpdated';
+  requesterId: string;
+}
+
 export type ServerEvent =
   | MessageAddedEvent
   | StatusChangedEvent
   | ModelChangedEvent
   | ModeChangedEvent
   | CommandsChangedEvent
-  | TopicAddedEvent;
+  | TopicAddedEvent
+  | TopicsUpdatedEvent;

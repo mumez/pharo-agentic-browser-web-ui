@@ -95,6 +95,12 @@ export function AbProvider(props: { children: JSX.Element }) {
       });
     });
 
+    client.onEvent('topicsUpdated', (requesterId: string) => {
+      if (requesterId !== sessionId) {
+        loadTopics();
+      }
+    });
+
     client.onEvent('statusChanged', (topicId: string, status: TopicStatus) => {
       setState('topics', (t) => t.topicId === topicId, 'status', status);
 

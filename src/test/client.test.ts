@@ -178,6 +178,33 @@ describe('AbClient', () => {
     expect(onChunk.mock.calls[1][1]).toBe(true); // done = true
   });
 
+  it('should send register for topicsUpdated on connect', async () => {
+    client.onOpen(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const sent = ws.getSentJSON();
+    const registerMsg = sent.find((m) => m.type === 'register' && m.address === 'topicsUpdated');
+    expect(registerMsg).toBeDefined();
+  });
+
+  it('should fire topicsUpdated event on publish', async () => {
+    client.onOpen(() => {});
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const onTopicsUpdated = vi.fn();
+    client.onEvent('topicsUpdated', onTopicsUpdated);
+
+    ws.simulateMessageFromServer({
+      type: 'publish',
+      address: 'topicsUpdated',
+      body: { event: 'topicsUpdated', requesterId: 'other-session-id' },
+    });
+
+    expect(onTopicsUpdated).toHaveBeenCalledWith('other-session-id');
+  });
+
   it('should handle push events for messageAdded and statusChanged', async () => {
     client.onOpen(() => {}); // registers sessionId push handler
     await new Promise((resolve) => setTimeout(resolve, 10));

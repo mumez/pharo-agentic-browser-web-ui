@@ -25,6 +25,13 @@ export class AbClient {
         }
         this.handlePushEvent(body);
       });
+      this.ripple.registerHandler('topicsUpdated', (body: any, err: any) => {
+        if (err) {
+          console.error('topicsUpdated error:', err);
+          return;
+        }
+        this.handleTopicsUpdated(body);
+      });
       handler(this);
     });
   }
@@ -61,6 +68,11 @@ export class AbClient {
     } else {
       handlers.forEach((fn) => fn(body));
     }
+  }
+
+  private handleTopicsUpdated(body: any) {
+    const handlers = this.eventHandlers.get('topicsUpdated') || [];
+    handlers.forEach((fn) => fn(body.requesterId));
   }
 
   onEvent(event: string, handler: Function) {
