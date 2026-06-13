@@ -6,6 +6,7 @@ export interface TopicData {
   name: string;
   status: TopicStatus;
   agentArguments: string[];
+  goal: string;
   currentModel: string;
   currentMode: string;
   lastUpdated: string;

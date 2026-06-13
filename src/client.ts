@@ -116,7 +116,7 @@ export class AbClient {
 
   setTitle(topicId: string, title: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      this.ripple.request('/topics/setTitle', { topicId, title }, (body: any, err: any) => {
+      this.ripple.request('/topic/setTitle', { topicId, title }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.ok);
       });
@@ -125,7 +125,7 @@ export class AbClient {
 
   deleteTopic(topicId: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      this.ripple.request('/topics/delete', { topicId }, (body: any, err: any) => {
+      this.ripple.request('/topic/delete', { topicId }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.ok);
       });
@@ -134,7 +134,7 @@ export class AbClient {
 
   setAgent(topicId: string, agentArguments: string[]): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      this.ripple.request('/topics/setAgent', { topicId, agentArguments }, (body: any, err: any) => {
+      this.ripple.request('/topic/setAgent', { topicId, agentArguments }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.ok);
       });
@@ -143,7 +143,25 @@ export class AbClient {
 
   setGoal(topicId: string, goal: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      this.ripple.request('/topics/setGoal', { topicId, goal }, (body: any, err: any) => {
+      this.ripple.request('/topic/setGoal', { topicId, goal }, (body: any, err: any) => {
+        if (err) return reject(err);
+        resolve(body.ok);
+      });
+    });
+  }
+
+  setModel(topicId: string, optionId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.ripple.request('/topic/setModel', { topicId, optionId }, (body: any, err: any) => {
+        if (err) return reject(err);
+        resolve(body.ok);
+      });
+    });
+  }
+
+  setMode(topicId: string, optionId: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.ripple.request('/topic/setMode', { topicId, optionId }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.ok);
       });
@@ -152,7 +170,7 @@ export class AbClient {
 
   selectTopic(topicId: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      this.ripple.request('/topics/select', { topicId }, (body: any, err: any) => {
+      this.ripple.request('/topic/select', { topicId }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.ok);
       });
@@ -186,7 +204,7 @@ export class AbClient {
 
   copyTopic(topicId: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.ripple.request('/topics/copy', { topicId }, (body: any, err: any) => {
+      this.ripple.request('/topic/copy', { topicId }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.topicId);
       });
