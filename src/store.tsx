@@ -27,6 +27,7 @@ interface AbContextValue {
   deleteTopic: (topicId: string) => Promise<void>;
   copyTopic: (topicId: string) => Promise<void>;
   selectTopic: (topicId: string) => Promise<void>;
+  setAgent: (topicId: string, agentArguments: string[]) => Promise<void>;
   setGoal: (topicId: string, goal: string) => Promise<void>;
   sendPrompt: (text: string) => void;
   cancelPrompt: () => void;
@@ -237,6 +238,16 @@ export function AbProvider(props: { children: JSX.Element }) {
     });
   };
 
+  const setAgent = async (topicId: string, agentArguments: string[]) => {
+    if (!client) return;
+    try {
+      await client.setAgent(topicId, agentArguments);
+      setState('topics', (t) => t.topicId === topicId, 'agentArguments', agentArguments);
+    } catch (err: any) {
+      setState('error', err.message || 'Failed to set agent');
+    }
+  };
+
   const setGoal = async (topicId: string, goal: string) => {
     if (!client) return;
     try {
@@ -292,6 +303,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         deleteTopic,
         copyTopic,
         selectTopic,
+        setAgent,
         setGoal,
         sendPrompt,
         cancelPrompt,

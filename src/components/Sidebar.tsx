@@ -3,7 +3,13 @@ import { useAb } from "../store";
 import type { TopicData } from "../types";
 
 export default function Sidebar() {
-  const { state, createTopic, deleteTopic, copyTopic, renameTopic, selectTopic, saveApp } = useAb();
+  const { state, createTopic, deleteTopic, copyTopic, renameTopic, selectTopic, setAgent, saveApp } = useAb();
+
+  const agentDisplayName = (agentArguments: string[]) => {
+    const key = agentArguments.join(' ');
+    return state.agents.find((a) => a.command.join(' ') === key)?.name
+      ?? (agentArguments.join(' ') || 'no arguments');
+  };
 
   const [isSaved, setIsSaved] = createSignal(false);
 
@@ -19,6 +25,8 @@ export default function Sidebar() {
   const [manualAgentArgs, setManualAgentArgs] = createSignal("claude-code");
 
   const hasAgents = createMemo(() => state.agents.length > 0);
+
+  const [agentModalTopic, setAgentModalTopic] = createSignal<TopicData | null>(null);
 
   const [editingTopicId, setEditingTopicId] = createSignal<string | null>(null);
   const [editingTitle, setEditingTitle] = createSignal("");
@@ -223,9 +231,28 @@ export default function Sidebar() {
 
                 {/* Topic Line 2: Details & Actions */}
                 <div class="flex items-center justify-between mt-2 pt-1 border-t border-current/10 text-xs opacity-75">
-                  <span class="truncate max-w-[150px]">
-                    {topic.agentArguments.join(" ") || "no arguments"}
-                  </span>
+                  <Show
+                    when={state.agents.length > 0 && topic.status !== 'working'}
+                    fallback={
+                      <span class={`truncate max-w-[150px] ${topic.status === 'working' ? 'opacity-50' : ''}`}>
+                        {agentDisplayName(topic.agentArguments)}
+                      </span>
+                    }
+                  >
+                    <button
+                      class="flex items-center gap-1 max-w-[150px] hover:underline underline-offset-2 cursor-pointer transition-opacity"
+                      title="Switch agent"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAgentModalTopic(topic);
+                      }}
+                    >
+                      <span class="truncate">{agentDisplayName(topic.agentArguments)}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                  </Show>
 
                   {/* Action Buttons */}
                   <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
@@ -355,6 +382,57 @@ export default function Sidebar() {
         </div>
         <span class="opacity-40">v0.1.0</span>
       </div>
+
+      {/* Agent Select Modal */}
+      <Show when={agentModalTopic() !== null}>
+        <div class="modal modal-open" onClick={() => setAgentModalTopic(null)}>
+          <div
+            class="modal-box max-w-sm rounded-2xl bg-base-100 shadow-2xl p-0 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div class="p-5 border-b border-base-200">
+              <h3 class="font-bold text-lg">Switch Agent</h3>
+              <p class="text-xs opacity-60 mt-0.5 truncate">{agentModalTopic()!.title}</p>
+            </div>
+            <ul class="p-2 space-y-1">
+              <For each={state.agents}>
+                {(agent) => {
+                  const isActive = agent.command.join(' ') === agentModalTopic()!.agentArguments.join(' ');
+                  return (
+                    <li>
+                      <button
+                        class={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors ${
+                          isActive
+                            ? 'bg-primary text-primary-content font-semibold'
+                            : 'hover:bg-base-200'
+                        }`}
+                        onClick={() => {
+                          if (!isActive) setAgent(agentModalTopic()!.topicId, agent.command);
+                          setAgentModalTopic(null);
+                        }}
+                      >
+                        <span class="flex items-center gap-2">
+                          {isActive && (
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                          )}
+                          {agent.name}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+            <div class="p-3 border-t border-base-200">
+              <button class="btn btn-ghost btn-sm w-full" onClick={() => setAgentModalTopic(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* Create Topic Modal */}
       <Show when={isCreateOpen()}>
