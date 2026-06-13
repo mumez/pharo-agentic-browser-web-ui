@@ -25,6 +25,7 @@ interface AbContextValue {
   createTopic: (title?: string, agentArguments?: string[]) => Promise<string>;
   renameTopic: (topicId: string, title: string) => Promise<void>;
   deleteTopic: (topicId: string) => Promise<void>;
+  copyTopic: (topicId: string) => Promise<void>;
   selectTopic: (topicId: string) => Promise<void>;
   setGoal: (topicId: string, goal: string) => Promise<void>;
   sendPrompt: (text: string) => void;
@@ -182,6 +183,17 @@ export function AbProvider(props: { children: JSX.Element }) {
     }
   };
 
+  const copyTopic = async (topicId: string) => {
+    if (!client) return;
+    try {
+      const newTopicId = await client.copyTopic(topicId);
+      // topicAdded push event will add the topic to the list automatically
+      await selectTopic(newTopicId);
+    } catch (err: any) {
+      setState('error', err.message || 'Failed to copy topic');
+    }
+  };
+
   const deleteTopic = async (topicId: string) => {
     if (!client) return;
     try {
@@ -278,6 +290,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         createTopic,
         renameTopic,
         deleteTopic,
+        copyTopic,
         selectTopic,
         setGoal,
         sendPrompt,
