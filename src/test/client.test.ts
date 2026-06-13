@@ -202,6 +202,129 @@ describe('AbClient', () => {
     expect(onTopicsUpdated).toHaveBeenCalledWith('other-session-id');
   });
 
+  it('should handle setGoal request-reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const setGoalPromise = client.setGoal('t1', 'Implement the login feature');
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/setGoal');
+    expect(request).toBeDefined();
+    expect(request.body).toEqual({ topicId: 't1', goal: 'Implement the login feature' });
+
+    ws.simulateMessageFromServer({
+      type: 'reply',
+      address: '/topic/setGoal',
+      correlationId: request.correlationId,
+      body: { ok: true },
+    });
+
+    const ok = await setGoalPromise;
+    expect(ok).toBe(true);
+  });
+
+  it('should handle setModel request-reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const setModelPromise = client.setModel('t1', 'claude-opus-4-8');
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/setModel');
+    expect(request).toBeDefined();
+    expect(request.body).toEqual({ topicId: 't1', optionId: 'claude-opus-4-8' });
+
+    ws.simulateMessageFromServer({
+      type: 'reply',
+      address: '/topic/setModel',
+      correlationId: request.correlationId,
+      body: { ok: true },
+    });
+
+    const ok = await setModelPromise;
+    expect(ok).toBe(true);
+  });
+
+  it('should handle setMode request-reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const setModePromise = client.setMode('t1', 'auto');
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/setMode');
+    expect(request).toBeDefined();
+    expect(request.body).toEqual({ topicId: 't1', optionId: 'auto' });
+
+    ws.simulateMessageFromServer({
+      type: 'reply',
+      address: '/topic/setMode',
+      correlationId: request.correlationId,
+      body: { ok: true },
+    });
+
+    const ok = await setModePromise;
+    expect(ok).toBe(true);
+  });
+
+  it('should fire modelChanged and modeChanged events', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const onModelChanged = vi.fn();
+    const onModeChanged = vi.fn();
+
+    client.onEvent('modelChanged', onModelChanged);
+    client.onEvent('modeChanged', onModeChanged);
+
+    const modelOptions = [
+      { label: 'Claude Sonnet 4.6', optionId: 'claude-sonnet-4-6', selected: true },
+      { label: 'Claude Opus 4.8', optionId: 'claude-opus-4-8', selected: false },
+    ];
+    const modeOptions = [
+      { label: 'Auto', optionId: 'auto', selected: true },
+      { label: 'Think', optionId: 'think', selected: false },
+    ];
+
+    ws.simulateMessageFromServer({
+      type: 'send',
+      address: 'serverEventPushed',
+      body: { event: 'modelChanged', topicId: 't1', options: modelOptions },
+    });
+
+    ws.simulateMessageFromServer({
+      type: 'send',
+      address: 'serverEventPushed',
+      body: { event: 'modeChanged', topicId: 't1', options: modeOptions },
+    });
+
+    expect(onModelChanged).toHaveBeenCalledWith('t1', modelOptions);
+    expect(onModeChanged).toHaveBeenCalledWith('t1', modeOptions);
+  });
+
+  it('should handle setModel error reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const setModelPromise = client.setModel('t1', 'invalid-model');
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/setModel');
+    expect(request).toBeDefined();
+
+    ws.simulateMessageFromServer({
+      type: 'err',
+      failureCode: 10007,
+      message: 'No model config available for: t1',
+      correlationId: request.correlationId,
+    });
+
+    await expect(setModelPromise).rejects.toMatchObject({
+      message: 'No model config available for: t1',
+    });
+  });
+
   it('should handle push events for messageAdded and statusChanged', async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     const ws = MockWebSocket.lastInstance()!;

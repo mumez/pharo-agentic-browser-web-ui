@@ -254,6 +254,7 @@ export function AbProvider(props: { children: JSX.Element }) {
     if (!client) return;
     try {
       await client.setGoal(topicId, goal);
+      setState('topics', (t) => t.topicId === topicId, 'goal', goal);
     } catch (err: any) {
       setState('error', err.message || 'Failed to set goal');
     }
