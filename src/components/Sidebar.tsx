@@ -3,7 +3,15 @@ import { useAb } from "../store";
 import type { TopicData } from "../types";
 
 export default function Sidebar() {
-  const { state, createTopic, deleteTopic, renameTopic, selectTopic } = useAb();
+  const { state, createTopic, deleteTopic, renameTopic, selectTopic, saveApp } = useAb();
+
+  const [isSaved, setIsSaved] = createSignal(false);
+
+  const handleSave = async () => {
+    await saveApp();
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  };
 
   const [isCreateOpen, setIsCreateOpen] = createSignal(false);
   const [newTitle, setNewTitle] = createSignal("");
@@ -89,8 +97,32 @@ export default function Sidebar() {
       {/* Sidebar Header */}
       <div class="p-4 border-b border-base-300 flex items-center justify-between bg-base-100/50 backdrop-blur-md">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content font-bold shadow-md shadow-primary/20">
-            P
+          <div class="dropdown">
+            <button
+              tabindex="0"
+              class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-content shadow-md shadow-primary/20 hover:bg-primary/80 transition-colors"
+              title="Menu"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu bg-base-100 rounded-xl z-50 w-40 p-1 shadow-lg border border-base-300 mt-1"
+            >
+              <li>
+                <button
+                  class="flex items-center gap-2 text-sm"
+                  onClick={handleSave}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  {isSaved() ? "Saved ✓" : "Save"}
+                </button>
+              </li>
+            </ul>
           </div>
           <div>
             <h1 class="font-bold text-lg leading-none">

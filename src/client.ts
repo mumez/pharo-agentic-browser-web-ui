@@ -183,4 +183,13 @@ export class AbClient {
   resolveApproval(topicId: string, optionId: string) {
     this.ripple.send('/approval/resolve', { topicId, optionId });
   }
+
+  saveApp(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.ripple.request('/app/save', {}, (body: any, err: any) => {
+        if (err) return reject(err);
+        resolve(body.ok);
+      });
+    });
+  }
 }

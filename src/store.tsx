@@ -30,6 +30,7 @@ interface AbContextValue {
   sendPrompt: (text: string) => void;
   cancelPrompt: () => void;
   resolveApproval: (optionId: string) => void;
+  saveApp: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -243,6 +244,15 @@ export function AbProvider(props: { children: JSX.Element }) {
     client.cancelPrompt(state.selectedTopicId);
   };
 
+  const saveApp = async () => {
+    if (!client) return;
+    try {
+      await client.saveApp();
+    } catch (err: any) {
+      setState('error', err.message || 'Failed to save');
+    }
+  };
+
   const resolveApproval = (optionId: string) => {
     if (!client || !state.selectedTopicId) return;
     client.resolveApproval(state.selectedTopicId, optionId);
@@ -273,6 +283,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         sendPrompt,
         cancelPrompt,
         resolveApproval,
+        saveApp,
         clearError,
       }}
     >
