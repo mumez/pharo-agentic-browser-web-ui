@@ -45,7 +45,7 @@ Runs the test suite with Vitest.
 
 ## Specifications
 
-- Protocol Reference: [web-ui-api.md](https://github.com/mumez/pharo-agentic-browser/blob/main/docs//web-ui-api.md)
+- Protocol Reference: [web-ui-api.md](https://github.com/mumez/pharo-agentic-browser/blob/main/docs/web-ui-api.md)
 
 ## License
 
