@@ -27,7 +27,7 @@ export default function InputArea() {
           <div class="text-xs opacity-60 flex items-center gap-1 select-none">
             <span class="font-semibold text-primary">Goal:</span>
             <span class="truncate max-w-[500px]">
-              {selectedTopic()?.name || 'Collaborating on Pharo tasks'}
+              {selectedTopic()?.goal || 'Collaborating on Pharo tasks'}
             </span>
           </div>
         </Show>

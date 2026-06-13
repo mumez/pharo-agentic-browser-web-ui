@@ -29,6 +29,8 @@ interface AbContextValue {
   selectTopic: (topicId: string) => Promise<void>;
   setAgent: (topicId: string, agentArguments: string[]) => Promise<void>;
   setGoal: (topicId: string, goal: string) => Promise<void>;
+  setModel: (topicId: string, optionId: string) => Promise<void>;
+  setMode: (topicId: string, optionId: string) => Promise<void>;
   sendPrompt: (text: string) => void;
   cancelPrompt: () => void;
   resolveApproval: (optionId: string) => void;
@@ -257,6 +259,24 @@ export function AbProvider(props: { children: JSX.Element }) {
     }
   };
 
+  const setModel = async (topicId: string, optionId: string) => {
+    if (!client) return;
+    try {
+      await client.setModel(topicId, optionId);
+    } catch (err: any) {
+      setState('error', err.message || 'Failed to set model');
+    }
+  };
+
+  const setMode = async (topicId: string, optionId: string) => {
+    if (!client) return;
+    try {
+      await client.setMode(topicId, optionId);
+    } catch (err: any) {
+      setState('error', err.message || 'Failed to set mode');
+    }
+  };
+
   const sendPrompt = (text: string) => {
     if (!client || !state.selectedTopicId) return;
     client.sendPrompt(state.selectedTopicId, text);
@@ -305,6 +325,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         selectTopic,
         setAgent,
         setGoal,
+        setModel,
+        setMode,
         sendPrompt,
         cancelPrompt,
         resolveApproval,

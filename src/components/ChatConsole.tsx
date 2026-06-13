@@ -1,8 +1,9 @@
 import { createEffect, For, Show } from 'solid-js';
 import { useAb } from '../store';
+import type { OptionData } from '../types';
 
 export default function ChatConsole() {
-  const { state, selectedTopic, resolveApproval } = useAb();
+  const { state, selectedTopic, resolveApproval, setModel, setMode } = useAb();
   let chatEndRef: HTMLDivElement | undefined;
 
   createEffect(() => {
@@ -61,18 +62,54 @@ export default function ChatConsole() {
         }
       >
         {/* Chat Header */}
-        <div class="p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-md flex items-center justify-between">
-          <div class="min-w-0">
+        <div class="p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-md flex items-center justify-between gap-2">
+          <div class="min-w-0 flex-1">
             <h2 class="font-bold text-lg leading-tight truncate">{selectedTopic()?.title}</h2>
             <div class="flex items-center gap-1.5 mt-0.5 text-xs opacity-60">
               <span class="font-mono bg-base-200 px-1 rounded truncate max-w-[150px]">
                 {selectedTopic()?.topicId}
               </span>
-              <span>•</span>
-              <span>Mode: {selectedTopic()?.currentMode || 'auto'}</span>
-              <span>•</span>
-              <span>Model: {selectedTopic()?.currentModel || 'none'}</span>
             </div>
+          </div>
+          {/* Model / Mode selectors */}
+          <div class="flex items-center gap-2 shrink-0">
+            <Show when={state.modeOptions.length > 0}>
+              <select
+                class="select select-xs select-bordered text-xs"
+                value={state.modeOptions.find((o: OptionData) => o.selected)?.optionId ?? ''}
+                onChange={(e) => {
+                  const topicId = state.selectedTopicId;
+                  if (topicId) setMode(topicId, e.currentTarget.value);
+                }}
+              >
+                <For each={state.modeOptions}>
+                  {(opt: OptionData) => (
+                    <option value={opt.optionId}>{opt.label}</option>
+                  )}
+                </For>
+              </select>
+            </Show>
+            <Show when={state.modelOptions.length > 0}>
+              <select
+                class="select select-xs select-bordered text-xs"
+                value={state.modelOptions.find((o: OptionData) => o.selected)?.optionId ?? ''}
+                onChange={(e) => {
+                  const topicId = state.selectedTopicId;
+                  if (topicId) setModel(topicId, e.currentTarget.value);
+                }}
+              >
+                <For each={state.modelOptions}>
+                  {(opt: OptionData) => (
+                    <option value={opt.optionId}>{opt.label}</option>
+                  )}
+                </For>
+              </select>
+            </Show>
+            <Show when={state.modeOptions.length === 0 && state.modelOptions.length === 0}>
+              <span class="text-xs opacity-40">
+                {selectedTopic()?.currentMode || 'auto'} / {selectedTopic()?.currentModel || 'none'}
+              </span>
+            </Show>
           </div>
         </div>
 

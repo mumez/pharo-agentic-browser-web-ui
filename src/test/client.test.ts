@@ -105,13 +105,13 @@ describe('AbClient', () => {
     const selectPromise = client.selectTopic('t1');
 
     const sent = ws.getSentJSON();
-    const request = sent.find((m) => m.type === 'request' && m.address === '/topics/select');
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/select');
     expect(request).toBeDefined();
     expect(request.body).toEqual({ topicId: 't1' });
 
     ws.simulateMessageFromServer({
       type: 'reply',
-      address: '/topics/select',
+      address: '/topic/select',
       correlationId: request.correlationId,
       body: { ok: true },
     });
