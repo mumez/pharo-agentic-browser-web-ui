@@ -150,23 +150,23 @@ describe('AbClient', () => {
     expect(getAll).toBeDefined();
     expect(getAll.body).toEqual({ topicId: 't1' });
 
-    // Simulate chunks sent to sessionId address
+    // Simulate chunks pushed via serverEventPushed address
     ws.simulateMessageFromServer({
       type: 'send',
-      address: sessionId,
+      address: 'serverEventPushed',
       body: {
         event: 'messages',
-        messages: [{ sender: 'human', text: 'hi', type: 'normal', approvalOptions: [], approvalOption: null, lastUpdated: '' }],
+        messages: [{ id: 'msg-1', sender: 'human', text: 'hi', type: 'normal', approvalOptions: [], approvalOption: null, lastUpdated: '' }],
         done: false,
       },
     });
 
     ws.simulateMessageFromServer({
       type: 'send',
-      address: sessionId,
+      address: 'serverEventPushed',
       body: {
         event: 'messages',
-        messages: [{ sender: 'ai', text: 'hello', type: 'normal', approvalOptions: [], approvalOption: null, lastUpdated: '' }],
+        messages: [{ id: 'msg-2', sender: 'ai', text: 'hello', type: 'normal', approvalOptions: [], approvalOption: null, lastUpdated: '' }],
         done: true,
       },
     });
@@ -212,21 +212,21 @@ describe('AbClient', () => {
     client.onEvent('messageAdded', onMessageAdded);
     client.onEvent('statusChanged', onStatusChanged);
 
-    // Simulate messageAdded push event
-    const messageMock = { sender: 'ai', text: 'thinking...', type: 'think', approvalOptions: [], approvalOption: null, lastUpdated: '' };
+    // Simulate messageAdded push event via serverEventPushed
+    const messageMock = { id: 'msg-uuid-1', sender: 'ai', text: 'thinking...', type: 'think', approvalOptions: [], approvalOption: null, lastUpdated: '' };
     ws.simulateMessageFromServer({
       type: 'send',
-      address: sessionId,
+      address: 'serverEventPushed',
       body: {
         event: 'messageAdded',
         message: messageMock,
       },
     });
 
-    // Simulate statusChanged push event
+    // Simulate statusChanged push event via serverEventPushed
     ws.simulateMessageFromServer({
       type: 'send',
-      address: sessionId,
+      address: 'serverEventPushed',
       body: {
         event: 'statusChanged',
         topicId: 't1',

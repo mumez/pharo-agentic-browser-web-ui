@@ -112,16 +112,9 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     client.onEvent('messageAdded', (message: MessageData) => {
       setState('messages', (prev) => {
-        if (prev.length > 0) {
-          const last = prev[prev.length - 1];
-          // Streaming update: same sender+type and text is growing
-          if (
-            last.sender === message.sender &&
-            last.type === message.type &&
-            message.text.startsWith(last.text)
-          ) {
-            return [...prev.slice(0, -1), message];
-          }
+        const idx = prev.findIndex((m) => m.id === message.id);
+        if (idx !== -1) {
+          return [...prev.slice(0, idx), message, ...prev.slice(idx + 1)];
         }
         return [...prev, message];
       });
@@ -243,18 +236,6 @@ export function AbProvider(props: { children: JSX.Element }) {
   const sendPrompt = (text: string) => {
     if (!client || !state.selectedTopicId) return;
     client.sendPrompt(state.selectedTopicId, text);
-    // Optimistic update
-    setState('messages', (prev) => [
-      ...prev,
-      {
-        sender: 'human',
-        text,
-        type: 'normal',
-        approvalOptions: [],
-        approvalOption: null,
-        lastUpdated: new Date().toISOString(),
-      },
-    ]);
   };
 
   const cancelPrompt = () => {

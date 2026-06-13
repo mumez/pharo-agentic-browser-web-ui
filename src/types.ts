@@ -21,6 +21,7 @@ export interface ApprovalOption {
 }
 
 export interface MessageData {
+  id: string;
   sender: MessageSender;
   text: string;
   type: MessageType;
