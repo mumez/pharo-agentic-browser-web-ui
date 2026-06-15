@@ -1,6 +1,6 @@
 # pharo-agentic-browser-web-ui
 
-Client-side Web UI for [pharo-agentic-browser](../pharo-agentic-browser).
+Client-side Web UI for [pharo-agentic-browser](https://github.com/mumez/pharo-agentic-browser).
 
 ## Overview
 
@@ -8,11 +8,11 @@ Client-side Web UI for [pharo-agentic-browser](../pharo-agentic-browser).
 - **Purpose**: Exposes the basic features of `pharo-agentic-browser` to a web browser
 - **Target Environment**: Single-user, local area network (LAN) usage. No authentication required.
 - **Out of Scope**: UI features designed for Pharo-local environment source editing (e.g., package export confirmation, setting target packages, working directory configuration, etc.)
-- **Server Implementation**: Located at `../pharo-agentic-browser` (Web-UI module)
+- **Server Implementation**: Located at https://github.com/mumez/pharo-agentic-browser (Web-UI module)
 
 ## Dependencies
 
-- **ripple-st-client** (`../ripple-st-client`): WebSocket (Ripple protocol) communication
+- [**ripple-st-client**](https://github.com/mumez/ripple-st-client): WebSocket (Ripple protocol) communication
 - **Solid.js**: Reactive UI framework (SPA foundation)
 - **daisyUI** + **Tailwind CSS**: UI styling and responsive design
 
