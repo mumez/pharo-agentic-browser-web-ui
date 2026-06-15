@@ -1,6 +1,7 @@
 node_modules/
 dist/
 test-assets/
+assets/
 .claude/
 .DS_Store
 AGENTS.md

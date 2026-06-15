@@ -30,7 +30,7 @@ Runs the app in development mode. Open [http://localhost:5173](http://localhost:
 
 ### `npm run build`
 
-Builds for production into `../pharo-agentic-browser/test-assets/agentic-browser`.  
+Builds for production into `/assets/agentic-browser`.  
 Assets are served at `http://localhost:8080/assets/agentic-browser` via Teapot.
 
 ### `npm test`
