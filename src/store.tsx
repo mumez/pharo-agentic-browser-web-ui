@@ -2,7 +2,7 @@ import { createContext, useContext, createMemo } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { AbClient } from './client';
-import type { AgentPreset, TopicData, MessageData, OptionData, TopicStatus } from './types';
+import type { AgentPreset, TopicData, MessageData, OptionData, CommandData, TopicStatus } from './types';
 
 interface AbState {
   agents: AgentPreset[];
@@ -12,7 +12,7 @@ interface AbState {
   isConnecting: boolean;
   isConnected: boolean;
   error: string | null;
-  availableCommands: OptionData[];
+  availableCommands: CommandData[];
   modelOptions: OptionData[];
   modeOptions: OptionData[];
 }
@@ -137,7 +137,7 @@ export function AbProvider(props: { children: JSX.Element }) {
       }
     });
 
-    client.onEvent('commandsChanged', (topicId: string, commands: OptionData[]) => {
+    client.onEvent('commandsChanged', (topicId: string, commands: CommandData[]) => {
       if (state.selectedTopicId === topicId) {
         setState('availableCommands', commands);
       }

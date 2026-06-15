@@ -37,6 +37,19 @@ export interface OptionData {
   selected: boolean;
 }
 
+export interface ConfigOptionItem {
+  name: string;
+  value: string;
+}
+
+export interface ConfigOptionData {
+  id: string;
+  currentValue: string;
+  type: string;
+  category: string;
+  options: ConfigOptionItem[];
+}
+
 export interface RippleError {
   type: 'err';
   failureType: string;
@@ -86,19 +99,27 @@ export interface StatusChangedEvent {
 export interface ModelChangedEvent {
   event: 'modelChanged';
   topicId: string;
-  options: OptionData[];
+  options: ConfigOptionData | null;
 }
 
 export interface ModeChangedEvent {
   event: 'modeChanged';
   topicId: string;
-  options: OptionData[];
+  options: ConfigOptionData | null;
+}
+
+export interface CommandData {
+  name: string;
+  description?: string;
+  input?: {
+    hint: string;
+  };
 }
 
 export interface CommandsChangedEvent {
   event: 'commandsChanged';
   topicId: string;
-  commands: OptionData[];
+  commands: CommandData[];
 }
 
 export interface TopicAddedEvent {
