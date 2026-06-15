@@ -380,7 +380,7 @@ export default function Sidebar() {
                 : "Disconnected"}
           </span>
         </div>
-        <span class="opacity-40">v0.1.0</span>
+        <span class="opacity-40">v{__APP_VERSION__}</span>
       </div>
 
       {/* Agent Select Modal */}

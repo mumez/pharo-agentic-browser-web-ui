@@ -107,9 +107,14 @@ export default function ChatConsole() {
               </div>
             </Show>
             <Show when={state.modeOptions === null && state.modelOptions === null}>
-              <span class="opacity-40">
-                {selectedTopic()?.currentModel || 'none'}<br />{selectedTopic()?.currentMode || 'auto'}
-              </span>
+              <div class="flex items-center gap-1.5">
+                <span class="opacity-40 font-medium">model:</span>
+                <span class="opacity-40">{selectedTopic()?.currentModel || 'none'}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="opacity-40 font-medium">mode:</span>
+                <span class="opacity-40">{selectedTopic()?.currentMode || 'auto'}</span>
+              </div>
             </Show>
           </div>
         </div>
