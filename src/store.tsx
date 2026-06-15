@@ -1,6 +1,6 @@
 import { createContext, useContext, createMemo, onCleanup } from 'solid-js';
 import type { JSX } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createStore, reconcile } from 'solid-js/store';
 import { AbClient } from './client';
 import type { AgentPreset, TopicData, MessageData, ConfigOptionData, CommandData, TopicStatus } from './types';
 
@@ -136,13 +136,13 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     client.onEvent('modelChanged', (topicId: string, options: ConfigOptionData | null) => {
       if (state.selectedTopicId === topicId) {
-        setState('modelOptions', options);
+        setState('modelOptions', reconcile(options));
       }
     });
 
     client.onEvent('modeChanged', (topicId: string, options: ConfigOptionData | null) => {
       if (state.selectedTopicId === topicId) {
-        setState('modeOptions', options);
+        setState('modeOptions', reconcile(options));
       }
     });
 
@@ -272,6 +272,9 @@ export function AbProvider(props: { children: JSX.Element }) {
   const setModel = async (topicId: string, optionId: string) => {
     if (!client) return;
     try {
+      if (state.selectedTopicId === topicId && state.modelOptions) {
+        setState('modelOptions', 'currentValue', optionId);
+      }
       await client.setModel(topicId, optionId);
     } catch (err: any) {
       setState('error', err.message || 'Failed to set model');
@@ -281,6 +284,9 @@ export function AbProvider(props: { children: JSX.Element }) {
   const setMode = async (topicId: string, optionId: string) => {
     if (!client) return;
     try {
+      if (state.selectedTopicId === topicId && state.modeOptions) {
+        setState('modeOptions', 'currentValue', optionId);
+      }
       await client.setMode(topicId, optionId);
     } catch (err: any) {
       setState('error', err.message || 'Failed to set mode');

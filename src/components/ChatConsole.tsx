@@ -70,43 +70,45 @@ export default function ChatConsole() {
               </span>
             </div>
           </div>
-          {/* Model / Mode selectors */}
-          <div class="flex items-center gap-2 shrink-0">
-            <Show when={state.modeOptions !== null}>
-              <select
-                class="select select-xs select-bordered text-xs"
-                value={state.modeOptions!.currentValue}
-                onChange={(e) => {
-                  const topicId = state.selectedTopicId;
-                  if (topicId) setMode(topicId, e.currentTarget.value);
-                }}
-              >
-                <For each={state.modeOptions!.options}>
-                  {(opt) => (
-                    <option value={opt.value}>{opt.name}</option>
-                  )}
-                </For>
-              </select>
-            </Show>
+          {/* Model / Mode selectors — 2-line right-aligned */}
+          <div class="flex flex-col items-end gap-1 shrink-0 text-xs">
             <Show when={state.modelOptions !== null}>
-              <select
-                class="select select-xs select-bordered text-xs"
-                value={state.modelOptions!.currentValue}
-                onChange={(e) => {
-                  const topicId = state.selectedTopicId;
-                  if (topicId) setModel(topicId, e.currentTarget.value);
-                }}
-              >
-                <For each={state.modelOptions!.options}>
-                  {(opt) => (
-                    <option value={opt.value}>{opt.name}</option>
-                  )}
-                </For>
-              </select>
+              <div class="flex items-center gap-1.5">
+                <span class="opacity-40 font-medium">model:</span>
+                <select
+                  class="select select-xs select-bordered text-xs"
+                  value={state.modelOptions!.currentValue}
+                  onChange={(e) => {
+                    const topicId = state.selectedTopicId;
+                    if (topicId) setModel(topicId, e.currentTarget.value);
+                  }}
+                >
+                  <For each={state.modelOptions!.options}>
+                    {(opt) => <option value={opt.value}>{opt.name}</option>}
+                  </For>
+                </select>
+              </div>
+            </Show>
+            <Show when={state.modeOptions !== null}>
+              <div class="flex items-center gap-1.5">
+                <span class="opacity-40 font-medium">mode:</span>
+                <select
+                  class="select select-xs select-bordered text-xs"
+                  value={state.modeOptions!.currentValue}
+                  onChange={(e) => {
+                    const topicId = state.selectedTopicId;
+                    if (topicId) setMode(topicId, e.currentTarget.value);
+                  }}
+                >
+                  <For each={state.modeOptions!.options}>
+                    {(opt) => <option value={opt.value}>{opt.name}</option>}
+                  </For>
+                </select>
+              </div>
             </Show>
             <Show when={state.modeOptions === null && state.modelOptions === null}>
-              <span class="text-xs opacity-40">
-                {selectedTopic()?.currentMode || 'auto'} / {selectedTopic()?.currentModel || 'none'}
+              <span class="opacity-40">
+                {selectedTopic()?.currentModel || 'none'}<br />{selectedTopic()?.currentMode || 'auto'}
               </span>
             </Show>
           </div>
