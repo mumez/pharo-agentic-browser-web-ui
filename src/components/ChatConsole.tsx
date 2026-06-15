@@ -1,7 +1,7 @@
 import { createEffect, For, Show } from 'solid-js';
 import { useAb } from '../store';
 
-export default function ChatConsole() {
+export default function ChatConsole(props: { onBack?: () => void }) {
   const { state, selectedTopic, resolveApproval, setModel, setMode } = useAb();
   let chatEndRef: HTMLDivElement | undefined;
 
@@ -62,6 +62,18 @@ export default function ChatConsole() {
       >
         {/* Chat Header */}
         <div class="p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-md flex items-center justify-between gap-2">
+          {/* Back button — mobile only */}
+          <Show when={props.onBack}>
+            <button
+              class="btn btn-ghost btn-sm btn-circle md:hidden shrink-0"
+              onClick={props.onBack}
+              title="Back to topics"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </Show>
           <div class="min-w-0 flex-1">
             <h2 class="font-bold text-lg leading-tight truncate">{selectedTopic()?.title}</h2>
             <div class="flex items-center gap-1.5 mt-0.5 text-xs opacity-60">
