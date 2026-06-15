@@ -1,4 +1,4 @@
-import { createContext, useContext, createMemo } from 'solid-js';
+import { createContext, useContext, createMemo, onCleanup } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { AbClient } from './client';
@@ -55,6 +55,15 @@ export function AbProvider(props: { children: JSX.Element }) {
   });
 
   let client: AbClient | null = null;
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden' && client) {
+      client.saveApp().catch(() => {});
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  onCleanup(() => document.removeEventListener('visibilitychange', handleVisibilityChange));
 
   const selectedTopic = createMemo(() => {
     return state.topics.find((t) => t.topicId === state.selectedTopicId) || null;

@@ -57,8 +57,10 @@ export default function InputArea() {
     if (!info) return;
     const before = text.slice(0, info.startIdx);
     const after = text.slice(cursorPos);
+    // Ensure the slash is preserved; server may omit it from cmd.name
+    const name = cmd.name.startsWith('/') ? cmd.name : `/${cmd.name}`;
     // Leave a trailing space when the command takes input so user can type arguments
-    const insertion = cmd.input ? `${cmd.name} ` : cmd.name;
+    const insertion = cmd.input ? `${name} ` : name;
     const newText = before + insertion + after;
     setInputText(newText);
     setSlashQuery(null);
