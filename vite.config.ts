@@ -10,6 +10,7 @@ export default defineConfig({
   plugins: [tailwindcss(), solid()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __RIPPLE_PORT__: Number(process.env.PHARO_RIPPLE_PORT ?? 8080),
   },
   build: {
     outDir: "./assets/agentic-browser",

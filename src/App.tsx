@@ -9,10 +9,9 @@ function AppContent() {
 
   onMount(() => {
     // Dynamically connect to the origin host so mobile LAN browsers work.
-    // Always use port 8080 — the Pharo Ripple server is fixed there regardless
-    // of which port is serving this page (e.g. vite preview uses 4173).
+    // Port is set at build time via PHARO_RIPPLE_PORT env var (default: 8080).
     const host = window.location.hostname || 'localhost';
-    connect(host, 8080);
+    connect(host, __RIPPLE_PORT__);
   });
 
   return (

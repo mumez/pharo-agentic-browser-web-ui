@@ -33,6 +33,22 @@ Runs the app in development mode. Open [http://localhost:5173](http://localhost:
 Builds for production into `/assets/agentic-browser`.  
 Assets are served at `http://localhost:8080/assets/agentic-browser` via Teapot.
 
+The following environment variables can be set at build time:
+
+| Variable | Default | Description |
+|---|---|---|
+| `PHARO_RIPPLE_PORT` | `8080` | WebSocket port of the Ripple server |
+
+The app version shown in the UI is taken from `version` in `package.json` automatically.
+
+```bash
+# Default build (port 8080)
+npm run build
+
+# Custom port
+PHARO_RIPPLE_PORT=9090 npm run build
+```
+
 ### `npm test`
 
 Runs the test suite with Vitest.

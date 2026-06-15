@@ -71,7 +71,7 @@ export function AbProvider(props: { children: JSX.Element }) {
 
   const clearError = () => setState('error', null);
 
-  const connect = (host = 'localhost', port = 8080) => {
+  const connect = (host = 'localhost', port = __RIPPLE_PORT__) => {
     if (client) {
       client.close();
     }
