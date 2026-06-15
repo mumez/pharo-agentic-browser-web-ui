@@ -2,7 +2,7 @@ import { createContext, useContext, createMemo } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { AbClient } from './client';
-import type { AgentPreset, TopicData, MessageData, OptionData, CommandData, TopicStatus } from './types';
+import type { AgentPreset, TopicData, MessageData, ConfigOptionData, CommandData, TopicStatus } from './types';
 
 interface AbState {
   agents: AgentPreset[];
@@ -13,8 +13,8 @@ interface AbState {
   isConnected: boolean;
   error: string | null;
   availableCommands: CommandData[];
-  modelOptions: OptionData[];
-  modeOptions: OptionData[];
+  modelOptions: ConfigOptionData | null;
+  modeOptions: ConfigOptionData | null;
 }
 
 interface AbContextValue {
@@ -50,8 +50,8 @@ export function AbProvider(props: { children: JSX.Element }) {
     isConnected: false,
     error: null,
     availableCommands: [],
-    modelOptions: [],
-    modeOptions: [],
+    modelOptions: null,
+    modeOptions: null,
   });
 
   let client: AbClient | null = null;
@@ -125,13 +125,13 @@ export function AbProvider(props: { children: JSX.Element }) {
       });
     });
 
-    client.onEvent('modelChanged', (topicId: string, options: OptionData[]) => {
+    client.onEvent('modelChanged', (topicId: string, options: ConfigOptionData | null) => {
       if (state.selectedTopicId === topicId) {
         setState('modelOptions', options);
       }
     });
 
-    client.onEvent('modeChanged', (topicId: string, options: OptionData[]) => {
+    client.onEvent('modeChanged', (topicId: string, options: ConfigOptionData | null) => {
       if (state.selectedTopicId === topicId) {
         setState('modeOptions', options);
       }
@@ -220,8 +220,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         selectedTopicId: topicId,
         messages: [],
         availableCommands: [],
-        modelOptions: [],
-        modeOptions: [],
+        modelOptions: null,
+        modeOptions: null,
       });
       reloadMessages(topicId);
     } catch (err: any) {

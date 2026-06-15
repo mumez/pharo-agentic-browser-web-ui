@@ -263,7 +263,7 @@ export default function Sidebar() {
                           <button
                             class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
                             onClick={(e) => startRename(topic, e)}
-                            title="Rename"
+                            title="Set title"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"

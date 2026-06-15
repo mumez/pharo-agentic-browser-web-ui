@@ -1,6 +1,5 @@
 import { createEffect, For, Show } from 'solid-js';
 import { useAb } from '../store';
-import type { OptionData } from '../types';
 
 export default function ChatConsole() {
   const { state, selectedTopic, resolveApproval, setModel, setMode } = useAb();
@@ -73,39 +72,39 @@ export default function ChatConsole() {
           </div>
           {/* Model / Mode selectors */}
           <div class="flex items-center gap-2 shrink-0">
-            <Show when={state.modeOptions.length > 0}>
+            <Show when={state.modeOptions !== null}>
               <select
                 class="select select-xs select-bordered text-xs"
-                value={state.modeOptions.find((o: OptionData) => o.selected)?.optionId ?? ''}
+                value={state.modeOptions!.currentValue}
                 onChange={(e) => {
                   const topicId = state.selectedTopicId;
                   if (topicId) setMode(topicId, e.currentTarget.value);
                 }}
               >
-                <For each={state.modeOptions}>
-                  {(opt: OptionData) => (
-                    <option value={opt.optionId}>{opt.label}</option>
+                <For each={state.modeOptions!.options}>
+                  {(opt) => (
+                    <option value={opt.value}>{opt.name}</option>
                   )}
                 </For>
               </select>
             </Show>
-            <Show when={state.modelOptions.length > 0}>
+            <Show when={state.modelOptions !== null}>
               <select
                 class="select select-xs select-bordered text-xs"
-                value={state.modelOptions.find((o: OptionData) => o.selected)?.optionId ?? ''}
+                value={state.modelOptions!.currentValue}
                 onChange={(e) => {
                   const topicId = state.selectedTopicId;
                   if (topicId) setModel(topicId, e.currentTarget.value);
                 }}
               >
-                <For each={state.modelOptions}>
-                  {(opt: OptionData) => (
-                    <option value={opt.optionId}>{opt.label}</option>
+                <For each={state.modelOptions!.options}>
+                  {(opt) => (
+                    <option value={opt.value}>{opt.name}</option>
                   )}
                 </For>
               </select>
             </Show>
-            <Show when={state.modeOptions.length === 0 && state.modelOptions.length === 0}>
+            <Show when={state.modeOptions === null && state.modelOptions === null}>
               <span class="text-xs opacity-40">
                 {selectedTopic()?.currentMode || 'auto'} / {selectedTopic()?.currentModel || 'none'}
               </span>
