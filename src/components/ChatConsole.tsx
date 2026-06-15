@@ -67,9 +67,10 @@ export default function ChatConsole(props: { onBack?: () => void }) {
             <button
               class="btn btn-ghost btn-sm btn-circle md:hidden shrink-0"
               onClick={props.onBack}
+              aria-label="Back to topics"
               title="Back to topics"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
               </svg>
             </button>

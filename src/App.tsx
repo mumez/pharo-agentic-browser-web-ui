@@ -19,6 +19,8 @@ function AppContent() {
   createEffect(() => {
     if (state.selectedTopicId) {
       setMobileView('chat');
+    } else if (mobileView() === 'chat') {
+      setMobileView('sidebar');
     }
   });
 
