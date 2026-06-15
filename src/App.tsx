@@ -1,4 +1,4 @@
-import { onMount, Show } from 'solid-js';
+import { onMount, Show, createSignal, createEffect } from 'solid-js';
 import { AbProvider, useAb } from './store';
 import Sidebar from './components/Sidebar';
 import ChatConsole from './components/ChatConsole';
@@ -6,6 +6,7 @@ import InputArea from './components/InputArea';
 
 function AppContent() {
   const { connect, state, clearError } = useAb();
+  const [mobileView, setMobileView] = createSignal<'sidebar' | 'chat'>('sidebar');
 
   onMount(() => {
     // Dynamically connect to the origin host so mobile LAN browsers work.
@@ -14,13 +15,24 @@ function AppContent() {
     connect(host, __RIPPLE_PORT__);
   });
 
+  // Auto-switch to chat when a topic becomes selected (mobile only, harmless on desktop)
+  createEffect(() => {
+    if (state.selectedTopicId) {
+      setMobileView('chat');
+    } else if (mobileView() === 'chat') {
+      setMobileView('sidebar');
+    }
+  });
+
   return (
     <div class="h-screen w-screen flex bg-base-100 overflow-hidden text-base-content font-sans">
-      {/* Sidebar (Topics list) */}
-      <Sidebar />
+      {/* Sidebar (Topics list) — full-screen on mobile when active */}
+      <div class={`${mobileView() === 'sidebar' ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:shrink-0 flex-col h-full overflow-hidden`}>
+        <Sidebar />
+      </div>
 
-      {/* Main Area */}
-      <div class="flex-1 flex flex-col h-full overflow-hidden relative bg-base-100">
+      {/* Main Area — full-screen on mobile when active */}
+      <div class={`${mobileView() === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 flex-col h-full overflow-hidden relative bg-base-100`}>
         {/* Error Toast */}
         <Show when={state.error}>
           <div class="toast toast-top toast-end z-50">
@@ -34,7 +46,7 @@ function AppContent() {
         </Show>
 
         {/* Conversation Logs */}
-        <ChatConsole />
+        <ChatConsole onBack={() => setMobileView('sidebar')} />
 
         {/* Input Area */}
         <InputArea />

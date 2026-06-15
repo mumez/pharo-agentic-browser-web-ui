@@ -101,7 +101,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div class="w-80 bg-base-200 border-r border-base-300 flex flex-col h-full overflow-hidden select-none">
+    <div class="w-full bg-base-200 border-r border-base-300 flex flex-col h-full overflow-hidden select-none">
       {/* Sidebar Header */}
       <div class="p-4 border-b border-base-300 flex items-center justify-between bg-base-100/50 backdrop-blur-md">
         <div class="flex items-center gap-2">
