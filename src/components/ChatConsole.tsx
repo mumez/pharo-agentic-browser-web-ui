@@ -1,9 +1,38 @@
-import { createEffect, For, Show } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, Show } from 'solid-js';
 import { useAb } from '../store';
 
 export default function ChatConsole(props: { onBack?: () => void }) {
   const { state, selectedTopic, resolveApproval, setModel, setMode } = useAb();
   let chatEndRef: HTMLDivElement | undefined;
+
+  const isWorking = createMemo(() => selectedTopic()?.status === 'working');
+
+  const [collapsedThinkIds, setCollapsedThinkIds] = createSignal<Set<string>>(new Set());
+
+  const thinkMessages = createMemo(() => state.messages.filter((m) => m.type === 'think'));
+  const hasThinkMessages = createMemo(() => thinkMessages().length > 0);
+  const allThinkCollapsed = createMemo(
+    () => thinkMessages().length > 0 && thinkMessages().every((m) => collapsedThinkIds().has(m.id))
+  );
+
+  const isThinkExpanded = (id: string) => isWorking() || !collapsedThinkIds().has(id);
+
+  const toggleThink = (id: string) => {
+    if (isWorking()) return;
+    setCollapsedThinkIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllThinks = () => {
+    if (allThinkCollapsed()) {
+      setCollapsedThinkIds(new Set<string>());
+    } else {
+      setCollapsedThinkIds(new Set<string>(thinkMessages().map((m) => m.id)));
+    }
+  };
 
   createEffect(() => {
     // Scroll to bottom whenever messages list updates
@@ -83,6 +112,21 @@ export default function ChatConsole(props: { onBack?: () => void }) {
               </span>
             </div>
           </div>
+          {/* Think visibility toggle */}
+          <Show when={hasThinkMessages()}>
+            <button
+              class={`btn btn-xs btn-ghost rounded-lg shrink-0 gap-1 ${allThinkCollapsed() ? 'opacity-50' : 'opacity-80'}`}
+              onClick={toggleAllThinks}
+              disabled={isWorking()}
+              title={allThinkCollapsed() ? 'Expand all thinks' : 'Collapse all thinks'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <span class="hidden sm:inline">{allThinkCollapsed() ? 'Show' : 'Hide'} thinks</span>
+            </button>
+          </Show>
+
           {/* Model / Mode selectors — 2-line right-aligned */}
           <div class="flex flex-col items-end gap-1 shrink-0 text-xs">
             <Show when={state.modelOptions !== null}>
@@ -163,14 +207,33 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                 >
                   {/* 2. Think Block Render */}
                   <Show when={message.type === 'think'}>
-                    <details class="collapse collapse-arrow bg-base-200/50 rounded-xl border border-base-300/40 my-2">
-                      <summary class="collapse-title text-xs font-semibold py-2 min-h-0 flex items-center opacity-70">
-                        <span class="mr-2">💡</span> {getSenderName(message.sender)}'s Reasoning
-                      </summary>
-                      <div class="collapse-content text-xs font-mono whitespace-pre-wrap opacity-80 pt-1 border-t border-base-300/20">
-                        {message.text}
-                      </div>
-                    </details>
+                    <div class="bg-base-200/50 rounded-xl border border-base-300/40 my-2 overflow-hidden">
+                      <button
+                        class={`w-full text-left text-xs font-semibold py-2 px-4 flex items-center gap-2 opacity-70 select-none transition-opacity hover:opacity-100 ${isWorking() ? 'cursor-default' : 'cursor-pointer'}`}
+                        onClick={() => toggleThink(message.id)}
+                        disabled={isWorking()}
+                      >
+                        <span>💡</span>
+                        <span>{getSenderName(message.sender)}'s Reasoning</span>
+                        <Show when={isWorking()}>
+                          <span class="loading loading-dots loading-xs ml-1 text-primary" />
+                        </Show>
+                        <Show when={!isWorking()}>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class={`h-3 w-3 ml-auto transition-transform ${isThinkExpanded(message.id) ? 'rotate-180' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                          >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </Show>
+                      </button>
+                      <Show when={isThinkExpanded(message.id)}>
+                        <div class="text-xs font-mono whitespace-pre-wrap opacity-80 px-4 pb-3 pt-1 border-t border-base-300/20">
+                          {message.text}
+                        </div>
+                      </Show>
+                    </div>
                   </Show>
 
                   {/* 3. Approval Block Render */}
