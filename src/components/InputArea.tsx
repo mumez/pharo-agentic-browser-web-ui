@@ -1,4 +1,4 @@
-import { createSignal, createMemo, Show, For } from 'solid-js';
+import { createSignal, createMemo, createEffect, Show, For } from 'solid-js';
 import { useAb } from '../store';
 import type { CommandData } from '../types';
 
@@ -6,6 +6,8 @@ export default function InputArea() {
   const { state, selectedTopic, sendPrompt, cancelPrompt, setGoal } = useAb();
   const [inputText, setInputText] = createSignal('');
   let textareaRef: HTMLTextAreaElement | undefined;
+
+  const [isCancelling, setIsCancelling] = createSignal(false);
 
   const [isGoalModalOpen, setIsGoalModalOpen] = createSignal(false);
   const [goalText, setGoalText] = createSignal('');
@@ -103,6 +105,11 @@ export default function InputArea() {
   };
 
   const isWorking = () => selectedTopic()?.status === 'working';
+
+  // Reset cancelling state when the server confirms the agent stopped
+  createEffect(() => {
+    if (!isWorking()) setIsCancelling(false);
+  });
 
   return (
     <Show when={state.selectedTopicId}>
@@ -229,24 +236,39 @@ export default function InputArea() {
               }
             >
               <button
-                class="btn btn-error btn-outline rounded-xl px-4 h-full min-h-0 flex items-center gap-1.5 animate-pulse"
-                onClick={cancelPrompt}
+                class={`btn btn-error btn-outline rounded-xl px-4 h-full min-h-0 flex items-center gap-1.5 ${isCancelling() ? 'opacity-60 cursor-not-allowed' : 'animate-pulse'}`}
+                disabled={isCancelling()}
+                onClick={() => {
+                  if (isCancelling()) return;
+                  setIsCancelling(true);
+                  cancelPrompt();
+                }}
               >
-                <span class="hidden sm:inline">Cancel</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+                <Show
+                  when={isCancelling()}
+                  fallback={
+                    <>
+                      <span class="hidden sm:inline">Cancel</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </>
+                  }
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+                  <span class="hidden sm:inline">Cancelling</span>
+                  <span class="loading loading-spinner loading-xs" />
+                </Show>
               </button>
             </Show>
           </div>

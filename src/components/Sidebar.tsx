@@ -31,6 +31,17 @@ export default function Sidebar() {
   const [editingTopicId, setEditingTopicId] = createSignal<string | null>(null);
   const [editingTitle, setEditingTitle] = createSignal("");
 
+  type SortOrder = 'lastUpdated' | 'title';
+  const [sortOrder, setSortOrder] = createSignal<SortOrder>('lastUpdated');
+
+  const sortedTopics = createMemo(() => {
+    const topics = [...state.topics];
+    if (sortOrder() === 'title') {
+      return topics.sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return topics.sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated));
+  });
+
   const handleCreate = async (e: Event) => {
     e.preventDefault();
     if (!newTitle().trim()) return;
@@ -163,6 +174,30 @@ export default function Sidebar() {
 
       {/* Topics List */}
       <div class="flex-1 overflow-y-auto p-3 space-y-1 bg-gradient-to-b from-base-200/50 to-base-300/30">
+        <Show when={state.topics.length > 0}>
+          <div class="flex items-center justify-end gap-1 pb-1">
+            <button
+              class={`btn btn-xs rounded-lg ${sortOrder() === 'lastUpdated' ? 'btn-primary' : 'btn-ghost opacity-60'}`}
+              onClick={() => setSortOrder('lastUpdated')}
+              title="Sort by last updated"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Updated
+            </button>
+            <button
+              class={`btn btn-xs rounded-lg ${sortOrder() === 'title' ? 'btn-primary' : 'btn-ghost opacity-60'}`}
+              onClick={() => setSortOrder('title')}
+              title="Sort by title"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+              </svg>
+              Title
+            </button>
+          </div>
+        </Show>
         <Show
           when={state.topics.length > 0}
           fallback={
@@ -185,7 +220,7 @@ export default function Sidebar() {
             </div>
           }
         >
-          <For each={state.topics}>
+          <For each={sortedTopics()}>
             {(topic) => (
               <div
                 onClick={() => {
