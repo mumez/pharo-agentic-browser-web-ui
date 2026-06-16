@@ -5,7 +5,7 @@ import ChatConsole from './components/ChatConsole';
 import InputArea from './components/InputArea';
 
 function AppContent() {
-  const { connect, state, clearError } = useAb();
+  const { connect, state, clearError, deselectTopic } = useAb();
   const [mobileView, setMobileView] = createSignal<'sidebar' | 'chat'>('sidebar');
 
   onMount(() => {
@@ -15,7 +15,7 @@ function AppContent() {
     connect(host, __RIPPLE_PORT__);
   });
 
-  // Auto-switch to chat when a topic becomes selected (mobile only, harmless on desktop)
+  // Auto-switch to chat when a topic is selected, to sidebar when deselected
   createEffect(() => {
     if (state.selectedTopicId) {
       setMobileView('chat');
@@ -46,7 +46,7 @@ function AppContent() {
         </Show>
 
         {/* Conversation Logs */}
-        <ChatConsole onBack={() => setMobileView('sidebar')} />
+        <ChatConsole onBack={() => { deselectTopic(); setMobileView('sidebar'); }} />
 
         {/* Input Area */}
         <InputArea />

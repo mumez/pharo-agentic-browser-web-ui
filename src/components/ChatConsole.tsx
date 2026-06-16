@@ -90,7 +90,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
         }
       >
         {/* Chat Header */}
-        <div class="p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-md flex items-center justify-between gap-2">
+        <div class="px-3 py-2.5 md:p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-md flex flex-wrap items-center gap-x-2 gap-y-2">
           {/* Back button — mobile only */}
           <Show when={props.onBack}>
             <button
@@ -105,8 +105,8 @@ export default function ChatConsole(props: { onBack?: () => void }) {
             </button>
           </Show>
           <div class="min-w-0 flex-1">
-            <h2 class="font-bold text-lg leading-tight truncate">{selectedTopic()?.title}</h2>
-            <div class="flex items-center gap-1.5 mt-0.5 text-xs opacity-60">
+            <h2 class="font-bold text-base md:text-lg leading-tight truncate">{selectedTopic()?.title}</h2>
+            <div class="hidden md:flex items-center gap-1.5 mt-0.5 text-xs opacity-60">
               <span class="font-mono bg-base-200 px-1 rounded truncate max-w-[150px]">
                 {selectedTopic()?.topicId}
               </span>
@@ -127,8 +127,8 @@ export default function ChatConsole(props: { onBack?: () => void }) {
             </button>
           </Show>
 
-          {/* Model / Mode selectors — 2-line right-aligned */}
-          <div class="flex flex-col items-end gap-1 shrink-0 text-xs">
+          {/* Model / Mode selectors — stacked vertically on both mobile and desktop */}
+          <div class="flex flex-col items-start md:items-end shrink-0 text-xs w-full md:w-auto gap-1">
             <Show when={state.modelOptions !== null}>
               <div class="flex items-center gap-1.5">
                 <span class="opacity-40 font-medium">model:</span>

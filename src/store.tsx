@@ -27,6 +27,7 @@ interface AbContextValue {
   deleteTopic: (topicId: string) => Promise<void>;
   copyTopic: (topicId: string) => Promise<void>;
   selectTopic: (topicId: string) => Promise<void>;
+  deselectTopic: () => void;
   setAgent: (topicId: string, agentArguments: string[]) => Promise<void>;
   setGoal: (topicId: string, goal: string) => Promise<void>;
   setModel: (topicId: string, optionId: string) => Promise<void>;
@@ -238,6 +239,10 @@ export function AbProvider(props: { children: JSX.Element }) {
     }
   };
 
+  const deselectTopic = () => {
+    setState({ selectedTopicId: null, messages: [], availableCommands: [], modelOptions: null, modeOptions: null });
+  };
+
   const reloadMessages = (topicId: string) => {
     if (!client) return;
     let accumulatedMessages: MessageData[] = [];
@@ -339,6 +344,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         deleteTopic,
         copyTopic,
         selectTopic,
+        deselectTopic,
         setAgent,
         setGoal,
         setModel,
