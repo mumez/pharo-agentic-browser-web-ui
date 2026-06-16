@@ -113,7 +113,7 @@ export default function InputArea() {
 
   return (
     <Show when={state.selectedTopicId}>
-      <div class="p-4 border-t border-base-300 bg-base-100 flex flex-col gap-3">
+      <div class="p-3 md:p-4 border-t border-base-300 bg-base-100 flex flex-col gap-2 md:gap-3">
         {/* Goal Banner */}
         <div class="flex items-center gap-1.5 select-none">
           <span class="text-xs font-semibold text-primary shrink-0">Goal:</span>
@@ -164,11 +164,11 @@ export default function InputArea() {
             </Show>
 
             <textarea
-              class="textarea textarea-bordered w-full pr-12 rounded-2xl min-h-[44px] max-h-40 resize-none py-2.5 font-sans leading-relaxed text-sm focus:outline-primary"
+              class="textarea textarea-bordered w-full rounded-2xl min-h-[44px] max-h-40 resize-none py-2.5 font-sans leading-relaxed text-sm focus:outline-primary"
               placeholder={
                 isWorking()
-                  ? 'Agent is processing... please wait or cancel'
-                  : 'Ask agent to implement code, run tests, or search class...'
+                  ? 'Agent is processing...'
+                  : 'Type your request...'
               }
               value={inputText()}
               disabled={isWorking()}
