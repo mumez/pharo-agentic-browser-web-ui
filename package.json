@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ripple-st-client": "^0.2.1",
+    "ripple-st-client": "^0.2.2",
     "solid-js": "^1.9.12"
   },
   "devDependencies": {
