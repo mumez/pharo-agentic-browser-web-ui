@@ -69,8 +69,12 @@ export default function Sidebar() {
     const topic = settingsModalTopic();
     const s = topicSettings();
     if (!topic || !s) return;
-    await setTopicSettings(topic.topicId, s);
-    setSettingsModalTopic(null);
+    try {
+      await setTopicSettings(topic.topicId, s);
+      setSettingsModalTopic(null);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const [editingTopicId, setEditingTopicId] = createSignal<string | null>(null);

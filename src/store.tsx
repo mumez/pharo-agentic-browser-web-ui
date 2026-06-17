@@ -267,12 +267,13 @@ export function AbProvider(props: { children: JSX.Element }) {
   };
 
   const setGoal = async (topicId: string, goal: string) => {
-    if (!client) return;
+    if (!client) throw new Error('Not connected');
     try {
       await client.setGoal(topicId, goal);
       setState('topics', (t) => t.topicId === topicId, 'goal', goal);
     } catch (err: any) {
       setState('error', err.message || 'Failed to set goal');
+      throw err;
     }
   };
 
@@ -316,11 +317,12 @@ export function AbProvider(props: { children: JSX.Element }) {
   };
 
   const setTopicSettings = async (topicId: string, settings: Partial<TopicSettings>) => {
-    if (!client) return;
+    if (!client) throw new Error('Not connected');
     try {
       await client.setSettings(topicId, settings);
     } catch (err: any) {
       setState('error', err.message || 'Failed to update settings');
+      throw err;
     }
   };
 
