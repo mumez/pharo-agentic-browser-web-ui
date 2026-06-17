@@ -50,6 +50,11 @@ export interface ConfigOptionData {
   options: ConfigOptionItem[];
 }
 
+export interface TopicSettings {
+  useCommandOnGoalSet: boolean;
+  goalSetCommand: string;
+}
+
 export interface RippleError {
   type: 'err';
   failureType: string;
