@@ -350,7 +350,7 @@ export default function Sidebar() {
                   </Show>
 
                   {/* Action Buttons */}
-                  <div class={`flex items-center gap-1 transition-opacity duration-150 ${longPressTopicId() === topic.topicId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  <div class={`flex items-center gap-1 transition-opacity duration-150 ${longPressTopicId() === topic.topicId ? 'opacity-100' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}>
                     <Show
                       when={editingTopicId() === topic.topicId}
                       fallback={
