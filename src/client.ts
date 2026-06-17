@@ -3,6 +3,7 @@ import type {
   AgentPreset,
   TopicData,
   MessageData,
+  TopicSettings,
 } from './types';
 
 export class AbClient {
@@ -207,6 +208,24 @@ export class AbClient {
       this.ripple.request('/topic/copy', { topicId }, (body: any, err: any) => {
         if (err) return reject(err);
         resolve(body.topicId);
+      });
+    });
+  }
+
+  getSettings(topicId: string): Promise<TopicSettings> {
+    return new Promise((resolve, reject) => {
+      this.ripple.request('/topic/getSettings', { topicId }, (body: any, err: any) => {
+        if (err) return reject(err);
+        resolve(body.settings);
+      });
+    });
+  }
+
+  setSettings(topicId: string, settings: Partial<TopicSettings>): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.ripple.request('/topic/setSettings', { topicId, settings }, (body: any, err: any) => {
+        if (err) return reject(err);
+        resolve(body.ok);
       });
     });
   }

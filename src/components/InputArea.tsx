@@ -1,4 +1,4 @@
-import { createSignal, createMemo, createEffect, Show, For } from 'solid-js';
+import { createSignal, createMemo, createEffect, Show, For, onCleanup } from 'solid-js';
 import { useAb } from '../store';
 import type { CommandData } from '../types';
 
@@ -8,6 +8,18 @@ export default function InputArea() {
   let textareaRef: HTMLTextAreaElement | undefined;
 
   const [isCancelling, setIsCancelling] = createSignal(false);
+  let cancelReenableTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const resetCancelReenableTimer = () => {
+    if (cancelReenableTimer) clearTimeout(cancelReenableTimer);
+    cancelReenableTimer = setTimeout(() => {
+      setIsCancelling(false);
+    }, 5000);
+  };
+
+  onCleanup(() => {
+    if (cancelReenableTimer) clearTimeout(cancelReenableTimer);
+  });
 
   const [isGoalModalOpen, setIsGoalModalOpen] = createSignal(false);
   const [goalText, setGoalText] = createSignal('');
@@ -88,6 +100,8 @@ export default function InputArea() {
     try {
       await setGoal(topicId, goalText().trim());
       setIsGoalModalOpen(false);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsSavingGoal(false);
     }
@@ -241,6 +255,7 @@ export default function InputArea() {
                 onClick={() => {
                   if (isCancelling()) return;
                   setIsCancelling(true);
+                  resetCancelReenableTimer();
                   cancelPrompt();
                 }}
               >

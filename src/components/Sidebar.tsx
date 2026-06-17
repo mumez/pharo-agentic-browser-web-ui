@@ -1,9 +1,9 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
 import { useAb } from "../store";
-import type { TopicData } from "../types";
+import type { TopicData, TopicSettings } from "../types";
 
 export default function Sidebar() {
-  const { state, createTopic, deleteTopic, copyTopic, renameTopic, selectTopic, setAgent, saveApp } = useAb();
+  const { state, createTopic, deleteTopic, copyTopic, renameTopic, selectTopic, setAgent, getTopicSettings, setTopicSettings, saveApp } = useAb();
 
   const agentDisplayName = (agentArguments: string[]) => {
     const key = agentArguments.join(' ');
@@ -27,6 +27,59 @@ export default function Sidebar() {
   const hasAgents = createMemo(() => state.agents.length > 0);
 
   const [agentModalTopic, setAgentModalTopic] = createSignal<TopicData | null>(null);
+
+  const [longPressTopicId, setLongPressTopicId] = createSignal<string | null>(null);
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let suppressNextClick = false;
+
+  const startLongPress = (topicId: string) => {
+    if (longPressTimer) clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+      setLongPressTopicId(topicId);
+      suppressNextClick = true;
+      longPressTimer = null;
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  };
+
+  const [settingsModalTopic, setSettingsModalTopic] = createSignal<TopicData | null>(null);
+  const [topicSettings, setTopicSettingsLocal] = createSignal<TopicSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = createSignal(false);
+  const [settingsError, setSettingsError] = createSignal<string | null>(null);
+
+  const openSettingsModal = async (topic: TopicData, e: Event) => {
+    e.stopPropagation();
+    setSettingsModalTopic(topic);
+    setTopicSettingsLocal(null);
+    setSettingsError(null);
+    setSettingsLoading(true);
+    try {
+      const s = await getTopicSettings(topic.topicId);
+      setTopicSettingsLocal(s);
+    } catch (err: any) {
+      setSettingsError(err?.message || 'Failed to load settings');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    const topic = settingsModalTopic();
+    const s = topicSettings();
+    if (!topic || !s) return;
+    try {
+      await setTopicSettings(topic.topicId, s);
+      setSettingsModalTopic(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const [editingTopicId, setEditingTopicId] = createSignal<string | null>(null);
   const [editingTitle, setEditingTitle] = createSignal("");
@@ -224,10 +277,25 @@ export default function Sidebar() {
             {(topic) => (
               <div
                 onClick={() => {
+                  if (suppressNextClick) {
+                    suppressNextClick = false;
+                    return;
+                  }
+                  if (longPressTopicId() !== null) {
+                    setLongPressTopicId(null);
+                  }
                   if (editingTopicId() !== topic.topicId) {
                     selectTopic(topic.topicId);
                   }
                 }}
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse') return;
+                  startLongPress(topic.topicId);
+                }}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
                 class={`group flex flex-col p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                   state.selectedTopicId === topic.topicId
                     ? "bg-primary text-primary-content shadow-lg shadow-primary/20 translate-x-1"
@@ -290,11 +358,21 @@ export default function Sidebar() {
                   </Show>
 
                   {/* Action Buttons */}
-                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div class={`flex items-center gap-1 transition-opacity duration-150 ${longPressTopicId() === topic.topicId ? 'opacity-100' : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'}`}>
                     <Show
                       when={editingTopicId() === topic.topicId}
                       fallback={
                         <>
+                          <button
+                            class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
+                            onClick={(e) => openSettingsModal(topic, e)}
+                            title="Settings"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
                           <button
                             class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
                             onClick={(e) => startRename(topic, e)}
@@ -417,6 +495,81 @@ export default function Sidebar() {
         </div>
         <span class="opacity-40">v{__APP_VERSION__}</span>
       </div>
+
+      {/* Topic Settings Modal */}
+      <Show when={settingsModalTopic() !== null}>
+        <div class="modal modal-open" onClick={() => setSettingsModalTopic(null)}>
+          <div
+            class="modal-box max-w-sm rounded-2xl bg-base-100 shadow-2xl p-0 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div class="p-5 border-b border-base-200">
+              <h3 class="font-bold text-lg">Topic Settings</h3>
+              <p class="text-xs opacity-60 mt-0.5 truncate">{settingsModalTopic()!.title}</p>
+            </div>
+            <Show
+              when={!settingsLoading()}
+              fallback={
+                <div class="p-8 flex justify-center">
+                  <span class="loading loading-spinner loading-md opacity-50" />
+                </div>
+              }
+            >
+              <Show when={settingsError() !== null}>
+                <div class="mx-5 mt-4 alert alert-error text-sm py-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  <span>{settingsError()}</span>
+                </div>
+              </Show>
+              <div class="p-5 space-y-4">
+                <div class="form-control">
+                  <label class="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-primary checkbox-sm"
+                      checked={topicSettings()?.useCommandOnGoalSet ?? false}
+                      onChange={(e) =>
+                        setTopicSettingsLocal((prev) =>
+                          prev ? { ...prev, useCommandOnGoalSet: e.currentTarget.checked } : prev
+                        )
+                      }
+                    />
+                    <span class="label-text text-sm">Use command on goal set</span>
+                  </label>
+                </div>
+                <div class="form-control">
+                  <label class="label-text text-sm opacity-70 mb-1">Goal set command</label>
+                  <input
+                    type="text"
+                    class="input input-bordered input-sm w-full font-mono"
+                    value={topicSettings()?.goalSetCommand ?? ""}
+                    onInput={(e) =>
+                      setTopicSettingsLocal((prev) =>
+                        prev ? { ...prev, goalSetCommand: e.currentTarget.value } : prev
+                      )
+                    }
+                    disabled={!topicSettings()?.useCommandOnGoalSet}
+                  />
+                </div>
+              </div>
+            </Show>
+            <div class="p-3 border-t border-base-200 flex gap-2 justify-end">
+              <button class="btn btn-ghost btn-sm" onClick={() => setSettingsModalTopic(null)}>
+                Cancel
+              </button>
+              <button
+                class="btn btn-primary btn-sm"
+                onClick={handleSaveSettings}
+                disabled={settingsLoading() || topicSettings() === null}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* Agent Select Modal */}
       <Show when={agentModalTopic() !== null}>

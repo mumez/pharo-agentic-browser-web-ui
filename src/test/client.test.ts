@@ -325,6 +325,75 @@ describe('AbClient', () => {
     });
   });
 
+  it('should handle getSettings request-reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const getSettingsPromise = client.getSettings('t1');
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/getSettings');
+    expect(request).toBeDefined();
+    expect(request.body).toEqual({ topicId: 't1' });
+
+    ws.simulateMessageFromServer({
+      type: 'reply',
+      address: '/topic/getSettings',
+      correlationId: request.correlationId,
+      body: {
+        settings: { useCommandOnGoalSet: true, goalSetCommand: '/goal' },
+      },
+    });
+
+    const settings = await getSettingsPromise;
+    expect(settings.useCommandOnGoalSet).toBe(true);
+    expect(settings.goalSetCommand).toBe('/goal');
+  });
+
+  it('should handle getSettings error reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const getSettingsPromise = client.getSettings('nonexistent');
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/getSettings');
+    expect(request).toBeDefined();
+
+    ws.simulateMessageFromServer({
+      type: 'err',
+      failureCode: 10001,
+      message: 'Topic not found: nonexistent',
+      correlationId: request.correlationId,
+    });
+
+    await expect(getSettingsPromise).rejects.toMatchObject({
+      message: 'Topic not found: nonexistent',
+    });
+  });
+
+  it('should handle setSettings request-reply', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const ws = MockWebSocket.lastInstance()!;
+
+    const setSettingsPromise = client.setSettings('t1', { useCommandOnGoalSet: false });
+
+    const sent = ws.getSentJSON();
+    const request = sent.find((m) => m.type === 'request' && m.address === '/topic/setSettings');
+    expect(request).toBeDefined();
+    expect(request.body).toEqual({ topicId: 't1', settings: { useCommandOnGoalSet: false } });
+
+    ws.simulateMessageFromServer({
+      type: 'reply',
+      address: '/topic/setSettings',
+      correlationId: request.correlationId,
+      body: { ok: true },
+    });
+
+    const ok = await setSettingsPromise;
+    expect(ok).toBe(true);
+  });
+
   it('should handle push events for messageAdded and statusChanged', async () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     const ws = MockWebSocket.lastInstance()!;

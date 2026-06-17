@@ -2,7 +2,7 @@ import { createContext, useContext, createMemo, onCleanup } from 'solid-js';
 import type { JSX } from 'solid-js';
 import { createStore, reconcile } from 'solid-js/store';
 import { AbClient } from './client';
-import type { AgentPreset, TopicData, MessageData, ConfigOptionData, CommandData, TopicStatus } from './types';
+import type { AgentPreset, TopicData, MessageData, ConfigOptionData, CommandData, TopicStatus, TopicSettings } from './types';
 
 interface AbState {
   agents: AgentPreset[];
@@ -35,6 +35,8 @@ interface AbContextValue {
   sendPrompt: (text: string) => void;
   cancelPrompt: () => void;
   resolveApproval: (optionId: string) => void;
+  getTopicSettings: (topicId: string) => Promise<TopicSettings>;
+  setTopicSettings: (topicId: string, settings: Partial<TopicSettings>) => Promise<void>;
   saveApp: () => Promise<void>;
   clearError: () => void;
 }
@@ -265,12 +267,13 @@ export function AbProvider(props: { children: JSX.Element }) {
   };
 
   const setGoal = async (topicId: string, goal: string) => {
-    if (!client) return;
+    if (!client) throw new Error('Not connected');
     try {
       await client.setGoal(topicId, goal);
       setState('topics', (t) => t.topicId === topicId, 'goal', goal);
     } catch (err: any) {
       setState('error', err.message || 'Failed to set goal');
+      throw err;
     }
   };
 
@@ -306,6 +309,21 @@ export function AbProvider(props: { children: JSX.Element }) {
   const cancelPrompt = () => {
     if (!client || !state.selectedTopicId) return;
     client.cancelPrompt(state.selectedTopicId);
+  };
+
+  const getTopicSettings = async (topicId: string): Promise<TopicSettings> => {
+    if (!client) throw new Error('Not connected');
+    return client.getSettings(topicId);
+  };
+
+  const setTopicSettings = async (topicId: string, settings: Partial<TopicSettings>) => {
+    if (!client) throw new Error('Not connected');
+    try {
+      await client.setSettings(topicId, settings);
+    } catch (err: any) {
+      setState('error', err.message || 'Failed to update settings');
+      throw err;
+    }
   };
 
   const saveApp = async () => {
@@ -352,6 +370,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         sendPrompt,
         cancelPrompt,
         resolveApproval,
+        getTopicSettings,
+        setTopicSettings,
         saveApp,
         clearError,
       }}
