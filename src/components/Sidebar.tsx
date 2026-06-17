@@ -51,15 +51,19 @@ export default function Sidebar() {
   const [settingsModalTopic, setSettingsModalTopic] = createSignal<TopicData | null>(null);
   const [topicSettings, setTopicSettingsLocal] = createSignal<TopicSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = createSignal(false);
+  const [settingsError, setSettingsError] = createSignal<string | null>(null);
 
   const openSettingsModal = async (topic: TopicData, e: Event) => {
     e.stopPropagation();
     setSettingsModalTopic(topic);
     setTopicSettingsLocal(null);
+    setSettingsError(null);
     setSettingsLoading(true);
     try {
       const s = await getTopicSettings(topic.topicId);
       setTopicSettingsLocal(s);
+    } catch (err: any) {
+      setSettingsError(err?.message || 'Failed to load settings');
     } finally {
       setSettingsLoading(false);
     }
@@ -511,6 +515,14 @@ export default function Sidebar() {
                 </div>
               }
             >
+              <Show when={settingsError() !== null}>
+                <div class="mx-5 mt-4 alert alert-error text-sm py-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                  <span>{settingsError()}</span>
+                </div>
+              </Show>
               <div class="p-5 space-y-4">
                 <div class="form-control">
                   <label class="label cursor-pointer justify-start gap-3">

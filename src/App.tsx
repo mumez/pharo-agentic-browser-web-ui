@@ -26,6 +26,18 @@ function AppContent() {
 
   return (
     <div class="h-screen w-screen flex bg-base-100 overflow-hidden text-base-content font-sans">
+      {/* Error Toast — outside mobile view containers so it shows on both sidebar and chat views */}
+      <Show when={state.error}>
+        <div class="toast toast-top toast-end z-50">
+          <div class="alert alert-error shadow-lg rounded-2xl flex items-center justify-between gap-4">
+            <span class="text-xs font-semibold">{state.error}</span>
+            <button class="btn btn-xs btn-circle btn-ghost" onClick={clearError}>
+              ✕
+            </button>
+          </div>
+        </div>
+      </Show>
+
       {/* Sidebar (Topics list) — full-screen on mobile when active */}
       <div class={`${mobileView() === 'sidebar' ? 'flex' : 'hidden'} md:flex w-full md:w-80 md:shrink-0 flex-col h-full overflow-hidden`}>
         <Sidebar />
@@ -33,18 +45,6 @@ function AppContent() {
 
       {/* Main Area — full-screen on mobile when active */}
       <div class={`${mobileView() === 'chat' ? 'flex' : 'hidden'} md:flex flex-1 flex-col h-full overflow-hidden relative bg-base-100`}>
-        {/* Error Toast */}
-        <Show when={state.error}>
-          <div class="toast toast-top toast-end z-50">
-            <div class="alert alert-error shadow-lg rounded-2xl flex items-center justify-between gap-4">
-              <span class="text-xs font-semibold">{state.error}</span>
-              <button class="btn btn-xs btn-circle btn-ghost" onClick={clearError}>
-                ✕
-              </button>
-            </div>
-          </div>
-        </Show>
-
         {/* Conversation Logs */}
         <ChatConsole onBack={() => { deselectTopic(); setMobileView('sidebar'); }} />
 
