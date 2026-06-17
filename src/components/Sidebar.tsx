@@ -28,6 +28,26 @@ export default function Sidebar() {
 
   const [agentModalTopic, setAgentModalTopic] = createSignal<TopicData | null>(null);
 
+  const [longPressTopicId, setLongPressTopicId] = createSignal<string | null>(null);
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  let suppressNextClick = false;
+
+  const startLongPress = (topicId: string) => {
+    if (longPressTimer) clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+      setLongPressTopicId(topicId);
+      suppressNextClick = true;
+      longPressTimer = null;
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  };
+
   const [settingsModalTopic, setSettingsModalTopic] = createSignal<TopicData | null>(null);
   const [topicSettings, setTopicSettingsLocal] = createSignal<TopicSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = createSignal(false);
@@ -249,10 +269,25 @@ export default function Sidebar() {
             {(topic) => (
               <div
                 onClick={() => {
+                  if (suppressNextClick) {
+                    suppressNextClick = false;
+                    return;
+                  }
+                  if (longPressTopicId() !== null) {
+                    setLongPressTopicId(null);
+                  }
                   if (editingTopicId() !== topic.topicId) {
                     selectTopic(topic.topicId);
                   }
                 }}
+                onPointerDown={(e) => {
+                  if (e.pointerType === 'mouse') return;
+                  startLongPress(topic.topicId);
+                }}
+                onPointerUp={cancelLongPress}
+                onPointerLeave={cancelLongPress}
+                onPointerCancel={cancelLongPress}
+                onContextMenu={(e) => e.preventDefault()}
                 class={`group flex flex-col p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                   state.selectedTopicId === topic.topicId
                     ? "bg-primary text-primary-content shadow-lg shadow-primary/20 translate-x-1"
@@ -315,7 +350,7 @@ export default function Sidebar() {
                   </Show>
 
                   {/* Action Buttons */}
-                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  <div class={`flex items-center gap-1 transition-opacity duration-150 ${longPressTopicId() === topic.topicId ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     <Show
                       when={editingTopicId() === topic.topicId}
                       fallback={
