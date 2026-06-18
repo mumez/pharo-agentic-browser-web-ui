@@ -9,7 +9,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
 
   const [collapsedThinkIds, setCollapsedThinkIds] = createSignal<Set<string>>(new Set());
 
-  const [submittedApprovalIds, setSubmittedApprovalIds] = createSignal<Set<string>>(new Set());
+  const [submittedApprovals, setSubmittedApprovals] = createSignal<Map<string, string>>(new Map());
 
   const latestApprovalId = createMemo(() => {
     const approvals = state.messages.filter(
@@ -19,7 +19,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
   });
 
   const handleResolveApproval = (messageId: string, optionId: string) => {
-    setSubmittedApprovalIds((prev) => new Set([...prev, messageId]));
+    setSubmittedApprovals((prev) => new Map([...prev, [messageId, optionId]]));
     resolveApproval(optionId);
   };
 
@@ -270,16 +270,18 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                       <div class="flex flex-wrap gap-2 mt-1">
                         <For each={message.approvalOptions}>
                           {(opt) => {
-                            const isSelected = message.approvalOption === opt.optionId;
+                            const isSelected = () =>
+                              message.approvalOption === opt.optionId ||
+                              submittedApprovals().get(message.id) === opt.optionId;
                             const isResolved = message.approvalOption !== null;
                             const isActive = () =>
                               message.id === latestApprovalId() &&
                               !isResolved &&
-                              !submittedApprovalIds().has(message.id);
+                              !submittedApprovals().has(message.id);
                             return (
                               <button
                                 class={`btn btn-sm rounded-lg transition-all ${
-                                  isSelected
+                                  isSelected()
                                     ? 'btn-success text-success-content hover:btn-success'
                                     : isActive()
                                     ? 'btn-warning hover:bg-warning/80'
@@ -289,7 +291,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                                 onClick={() => handleResolveApproval(message.id, opt.optionId)}
                               >
                                 {opt.label}
-                                {isSelected && ' ✓'}
+                                {isSelected() && ' ✓'}
                               </button>
                             );
                           }}
