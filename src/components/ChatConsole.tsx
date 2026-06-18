@@ -9,6 +9,23 @@ export default function ChatConsole(props: { onBack?: () => void }) {
 
   const [collapsedThinkIds, setCollapsedThinkIds] = createSignal<Set<string>>(new Set());
 
+  const [submittedApprovals, setSubmittedApprovals] = createSignal<Map<string, string>>(new Map());
+
+  const latestApprovalId = createMemo(() => {
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const m = state.messages[i];
+      if ((m.type === 'aiPermission' || m.type === 'exportApproval') && m.approvalOption === null) {
+        return m.id;
+      }
+    }
+    return null;
+  });
+
+  const handleResolveApproval = (messageId: string, optionId: string) => {
+    setSubmittedApprovals((prev) => new Map([...prev, [messageId, optionId]]));
+    resolveApproval(optionId);
+  };
+
   const thinkMessages = createMemo(() => state.messages.filter((m) => m.type === 'think'));
   const hasThinkMessages = createMemo(() => thinkMessages().length > 0);
   const allThinkCollapsed = createMemo(
@@ -256,22 +273,28 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                       <div class="flex flex-wrap gap-2 mt-1">
                         <For each={message.approvalOptions}>
                           {(opt) => {
-                            const isSelected = message.approvalOption === opt.optionId;
+                            const isSelected = () =>
+                              message.approvalOption === opt.optionId ||
+                              submittedApprovals().get(message.id) === opt.optionId;
                             const isResolved = message.approvalOption !== null;
+                            const isActive = () =>
+                              message.id === latestApprovalId() &&
+                              !isResolved &&
+                              !submittedApprovals().has(message.id);
                             return (
                               <button
                                 class={`btn btn-sm rounded-lg transition-all ${
-                                  isSelected
+                                  isSelected()
                                     ? 'btn-success text-success-content hover:btn-success'
-                                    : isResolved
-                                    ? 'btn-ghost btn-disabled opacity-40'
-                                    : 'btn-warning hover:bg-warning/80'
+                                    : isActive()
+                                    ? 'btn-warning hover:bg-warning/80'
+                                    : 'btn-ghost btn-disabled opacity-40'
                                 }`}
-                                disabled={isResolved}
-                                onClick={() => resolveApproval(opt.optionId)}
+                                disabled={!isActive()}
+                                onClick={() => handleResolveApproval(message.id, opt.optionId)}
                               >
                                 {opt.label}
-                                {isSelected && ' ✓'}
+                                {isSelected() && ' ✓'}
                               </button>
                             );
                           }}

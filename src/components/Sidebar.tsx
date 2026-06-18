@@ -81,6 +81,25 @@ export default function Sidebar() {
     }
   };
 
+  const [deletingTopicIds, setDeletingTopicIds] = createSignal<Set<string>>(new Set());
+
+  const handleDelete = async (topicId: string, e: Event) => {
+    e.stopPropagation();
+    if (!confirm("Delete this topic?")) return;
+
+    setDeletingTopicIds((prev) => new Set([...prev, topicId]));
+    const timeoutId = setTimeout(() => {
+      setDeletingTopicIds((prev) => { const s = new Set(prev); s.delete(topicId); return s; });
+    }, 5000);
+
+    try {
+      await deleteTopic(topicId);
+    } finally {
+      clearTimeout(timeoutId);
+      setDeletingTopicIds((prev) => { const s = new Set(prev); s.delete(topicId); return s; });
+    }
+  };
+
   const [editingTopicId, setEditingTopicId] = createSignal<string | null>(null);
   const [editingTitle, setEditingTitle] = createSignal("");
 
@@ -418,16 +437,12 @@ export default function Sidebar() {
                           </button>
                           <button
                             class={`btn btn-ghost btn-xs btn-circle hover:bg-error hover:text-error-content ${
-                              topic.status === "working"
+                              topic.status === "working" || deletingTopicIds().has(topic.topicId)
                                 ? "btn-disabled opacity-30"
                                 : ""
                             }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm("Delete this topic?")) {
-                                deleteTopic(topic.topicId);
-                              }
-                            }}
+                            disabled={topic.status === "working" || deletingTopicIds().has(topic.topicId)}
+                            onClick={(e) => handleDelete(topic.topicId, e)}
                             title="Delete"
                           >
                             <svg

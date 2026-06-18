@@ -135,6 +135,9 @@ export function AbProvider(props: { children: JSX.Element }) {
         }
         return [...prev, message];
       });
+      if (state.selectedTopicId) {
+        setState('topics', (t) => t.topicId === state.selectedTopicId, 'lastUpdated', message.lastUpdated);
+      }
     });
 
     client.onEvent('modelChanged', (topicId: string, options: ConfigOptionData | null) => {
