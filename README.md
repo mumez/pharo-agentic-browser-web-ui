@@ -63,6 +63,20 @@ Runs the test suite with Vitest.
 
 - Protocol Reference: [web-ui-api.md](https://github.com/mumez/pharo-agentic-browser/blob/main/docs/web-ui-api.md)
 
+## Screenshots
+
+### Desktop
+
+![Desktop - Topic list and agent conversation](docs/screenshots/desktop_001.png)
+
+![Desktop - Agent completed with test results](docs/screenshots/desktop_002.png)
+
+### Mobile
+
+![Mobile - Topic list](docs/screenshots/mobile_001.png)
+
+![Mobile - Agent conversation detail](docs/screenshots/mobile_002.png)
+
 ## License
 
 MIT
