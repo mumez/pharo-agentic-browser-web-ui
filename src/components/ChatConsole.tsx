@@ -9,6 +9,16 @@ export default function ChatConsole(props: { onBack?: () => void }) {
 
   const [collapsedThinkIds, setCollapsedThinkIds] = createSignal<Set<string>>(new Set());
 
+  const [submittedApprovalIds, setSubmittedApprovalIds] = createSignal<Set<string>>(new Set());
+
+  const handleResolveApproval = (messageId: string, optionId: string) => {
+    setSubmittedApprovalIds((prev) => new Set([...prev, messageId]));
+    setTimeout(() => {
+      setSubmittedApprovalIds((prev) => { const s = new Set(prev); s.delete(messageId); return s; });
+    }, 5000);
+    resolveApproval(optionId);
+  };
+
   const thinkMessages = createMemo(() => state.messages.filter((m) => m.type === 'think'));
   const hasThinkMessages = createMemo(() => thinkMessages().length > 0);
   const allThinkCollapsed = createMemo(
@@ -258,17 +268,18 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                           {(opt) => {
                             const isSelected = message.approvalOption === opt.optionId;
                             const isResolved = message.approvalOption !== null;
+                            const isSubmitted = () => submittedApprovalIds().has(message.id);
                             return (
                               <button
                                 class={`btn btn-sm rounded-lg transition-all ${
                                   isSelected
                                     ? 'btn-success text-success-content hover:btn-success'
-                                    : isResolved
+                                    : isResolved || isSubmitted()
                                     ? 'btn-ghost btn-disabled opacity-40'
                                     : 'btn-warning hover:bg-warning/80'
                                 }`}
-                                disabled={isResolved}
-                                onClick={() => resolveApproval(opt.optionId)}
+                                disabled={isResolved || isSubmitted()}
+                                onClick={() => handleResolveApproval(message.id, opt.optionId)}
                               >
                                 {opt.label}
                                 {isSelected && ' ✓'}
