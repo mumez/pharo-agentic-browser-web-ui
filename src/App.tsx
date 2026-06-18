@@ -25,7 +25,7 @@ function AppContent() {
   });
 
   return (
-    <div class="h-screen w-screen flex bg-base-100 overflow-hidden text-base-content font-sans">
+    <div class="h-[100dvh] w-screen flex bg-base-100 overflow-hidden text-base-content font-sans">
       {/* Error Toast — outside mobile view containers so it shows on both sidebar and chat views */}
       <Show when={state.error}>
         <div class="toast toast-top toast-end z-50">
