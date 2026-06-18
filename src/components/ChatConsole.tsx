@@ -3,7 +3,7 @@ import { useAb } from '../store';
 
 export default function ChatConsole(props: { onBack?: () => void }) {
   const { state, selectedTopic, resolveApproval, setModel, setMode } = useAb();
-  let chatEndRef: HTMLDivElement | undefined;
+  let messageLogRef: HTMLDivElement | undefined;
 
   const isWorking = createMemo(() => selectedTopic()?.status === 'working');
 
@@ -52,9 +52,8 @@ export default function ChatConsole(props: { onBack?: () => void }) {
   };
 
   createEffect(() => {
-    // Scroll to bottom whenever messages list updates
-    if (state.messages.length && chatEndRef) {
-      chatEndRef.scrollIntoView({ behavior: 'smooth' });
+    if (state.messages.length && messageLogRef) {
+      messageLogRef.scrollTop = messageLogRef.scrollHeight;
     }
   });
 
@@ -194,7 +193,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
         </div>
 
         {/* Message Log */}
-        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <div ref={messageLogRef} class="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Goal Display */}
           <Show when={selectedTopic()?.status === 'initial'}>
             <div class="alert alert-info rounded-2xl shadow-sm text-sm">
@@ -337,8 +336,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
             )}
           </For>
 
-          {/* Dummy element for scroll anchoring */}
-          <div ref={chatEndRef} />
+
         </div>
       </Show>
     </div>
