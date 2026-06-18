@@ -11,11 +11,15 @@ export default function ChatConsole(props: { onBack?: () => void }) {
 
   const [submittedApprovalIds, setSubmittedApprovalIds] = createSignal<Set<string>>(new Set());
 
+  const latestApprovalId = createMemo(() => {
+    const approvals = state.messages.filter(
+      (m) => m.type === 'aiPermission' || m.type === 'exportApproval'
+    );
+    return approvals.length > 0 ? approvals[approvals.length - 1].id : null;
+  });
+
   const handleResolveApproval = (messageId: string, optionId: string) => {
     setSubmittedApprovalIds((prev) => new Set([...prev, messageId]));
-    setTimeout(() => {
-      setSubmittedApprovalIds((prev) => { const s = new Set(prev); s.delete(messageId); return s; });
-    }, 5000);
     resolveApproval(optionId);
   };
 
@@ -268,17 +272,20 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                           {(opt) => {
                             const isSelected = message.approvalOption === opt.optionId;
                             const isResolved = message.approvalOption !== null;
-                            const isSubmitted = () => submittedApprovalIds().has(message.id);
+                            const isActive = () =>
+                              message.id === latestApprovalId() &&
+                              !isResolved &&
+                              !submittedApprovalIds().has(message.id);
                             return (
                               <button
                                 class={`btn btn-sm rounded-lg transition-all ${
                                   isSelected
                                     ? 'btn-success text-success-content hover:btn-success'
-                                    : isResolved || isSubmitted()
-                                    ? 'btn-ghost btn-disabled opacity-40'
-                                    : 'btn-warning hover:bg-warning/80'
+                                    : isActive()
+                                    ? 'btn-warning hover:bg-warning/80'
+                                    : 'btn-ghost btn-disabled opacity-40'
                                 }`}
-                                disabled={isResolved || isSubmitted()}
+                                disabled={!isActive()}
                                 onClick={() => handleResolveApproval(message.id, opt.optionId)}
                               >
                                 {opt.label}
