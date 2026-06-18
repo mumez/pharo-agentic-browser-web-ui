@@ -12,10 +12,13 @@ export default function ChatConsole(props: { onBack?: () => void }) {
   const [submittedApprovals, setSubmittedApprovals] = createSignal<Map<string, string>>(new Map());
 
   const latestApprovalId = createMemo(() => {
-    const approvals = state.messages.filter(
-      (m) => m.type === 'aiPermission' || m.type === 'exportApproval'
-    );
-    return approvals.length > 0 ? approvals[approvals.length - 1].id : null;
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const m = state.messages[i];
+      if ((m.type === 'aiPermission' || m.type === 'exportApproval') && m.approvalOption === null) {
+        return m.id;
+      }
+    }
+    return null;
   });
 
   const handleResolveApproval = (messageId: string, optionId: string) => {
