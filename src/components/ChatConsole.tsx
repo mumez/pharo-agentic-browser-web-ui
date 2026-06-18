@@ -107,7 +107,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
         }
       >
         {/* Chat Header */}
-        <div class="px-3 py-2.5 md:p-4 border-b border-base-300 bg-base-100/50 backdrop-blur-md flex flex-wrap items-center gap-x-2 gap-y-2">
+        <div class="sticky top-0 z-10 px-3 py-2.5 md:p-4 border-b border-base-300 bg-base-100/90 backdrop-blur-md flex flex-wrap items-center gap-x-2 gap-y-2">
           {/* Back button — mobile only */}
           <Show when={props.onBack}>
             <button
