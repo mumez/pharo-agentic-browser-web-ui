@@ -12,7 +12,8 @@ export class AbClient {
   private openHandler: ((client: AbClient) => void) | null = null;
 
   constructor(host: string, port: number, sessionId: string) {
-    const url = `ws://${host}:${port}/ws/agentic-browser?token=${sessionId}`;
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${wsScheme}://${host}:${port}/ws/agentic-browser?token=${sessionId}`;
     this.ripple = new Ripple(url);
     this.ripple.onOpen(() => {
       this.ripple.registerHandler('serverEventPushed', (body: any, err: any) => {
