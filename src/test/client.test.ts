@@ -411,6 +411,7 @@ describe('AbClient', () => {
       address: 'serverEventPushed',
       body: {
         event: 'messageAdded',
+        topicId: 't1',
         message: messageMock,
       },
     });
@@ -426,7 +427,7 @@ describe('AbClient', () => {
       },
     });
 
-    expect(onMessageAdded).toHaveBeenCalledWith(messageMock);
+    expect(onMessageAdded).toHaveBeenCalledWith('t1', messageMock);
     expect(onStatusChanged).toHaveBeenCalledWith('t1', 'working');
   });
 });
