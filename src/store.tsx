@@ -127,17 +127,17 @@ export function AbProvider(props: { children: JSX.Element }) {
       }
     });
 
-    client.onEvent('messageAdded', (message: MessageData) => {
-      setState('messages', (prev) => {
-        const idx = prev.findIndex((m) => m.id === message.id);
-        if (idx !== -1) {
-          return [...prev.slice(0, idx), message, ...prev.slice(idx + 1)];
-        }
-        return [...prev, message];
-      });
-      if (state.selectedTopicId) {
-        setState('topics', (t) => t.topicId === state.selectedTopicId, 'lastUpdated', message.lastUpdated);
+    client.onEvent('messageAdded', (topicId: string, message: MessageData) => {
+      if (state.selectedTopicId === topicId) {
+        setState('messages', (prev) => {
+          const idx = prev.findIndex((m) => m.id === message.id);
+          if (idx !== -1) {
+            return [...prev.slice(0, idx), message, ...prev.slice(idx + 1)];
+          }
+          return [...prev, message];
+        });
       }
+      setState('topics', (t) => t.topicId === topicId, 'lastUpdated', message.lastUpdated);
     });
 
     client.onEvent('modelChanged', (topicId: string, options: ConfigOptionData | null) => {

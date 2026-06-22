@@ -58,7 +58,7 @@ export class AbClient {
     if (eventName === 'messages') {
       handlers.forEach((fn) => fn(body.messages, body.done));
     } else if (eventName === 'messageAdded') {
-      handlers.forEach((fn) => fn(body.message));
+      handlers.forEach((fn) => fn(body.topicId, body.message));
     } else if (eventName === 'statusChanged') {
       handlers.forEach((fn) => fn(body.topicId, body.status));
     } else if (eventName === 'modelChanged' || eventName === 'modeChanged') {
