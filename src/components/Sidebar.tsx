@@ -316,7 +316,9 @@ export default function Sidebar() {
                 onPointerCancel={cancelLongPress}
                 onContextMenu={(e) => e.preventDefault()}
                 class={`group flex flex-col p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                  state.selectedTopicId === topic.topicId
+                  deletingTopicIds().has(topic.topicId)
+                    ? "opacity-40 pointer-events-none"
+                    : state.selectedTopicId === topic.topicId
                     ? "bg-primary text-primary-content shadow-lg shadow-primary/20 translate-x-1"
                     : "hover:bg-base-300 text-base-content/90"
                 }`}

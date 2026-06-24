@@ -67,6 +67,8 @@ export class AbClient {
       handlers.forEach((fn) => fn(body.topicId, body.commands));
     } else if (eventName === 'topicAdded') {
       handlers.forEach((fn) => fn(body.topic));
+    } else if (eventName === 'topicRemoved') {
+      handlers.forEach((fn) => fn(body.topicId));
     } else {
       handlers.forEach((fn) => fn(body));
     }

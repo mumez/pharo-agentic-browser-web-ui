@@ -118,6 +118,13 @@ export function AbProvider(props: { children: JSX.Element }) {
       }
     });
 
+    client.onEvent('topicRemoved', (topicId: string) => {
+      setState('topics', (prev) => prev.filter((t) => t.topicId !== topicId));
+      if (state.selectedTopicId === topicId) {
+        setState({ selectedTopicId: null, messages: [] });
+      }
+    });
+
     client.onEvent('statusChanged', (topicId: string, status: TopicStatus) => {
       setState('topics', (t) => t.topicId === topicId, 'status', status);
 
