@@ -2,10 +2,10 @@
 @plugin "daisyui";
 
 @theme {
-  --font-sans: 'Outfit', sans-serif;
+    --font-sans: "Outfit", sans-serif;
 }
 
 /* Hide chat bubble tail/arrow */
 .chat-bubble::before {
-  display: none;
+    display: none;
 }
