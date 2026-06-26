@@ -1,3 +1,11 @@
+export interface SentMessage {
+    type?: string;
+    address?: string;
+    correlationId?: string;
+    body?: Record<string, unknown>;
+    [key: string]: unknown;
+}
+
 export class MockWebSocket {
     static instances: MockWebSocket[] = [];
     static lastInstance(): MockWebSocket | undefined {
@@ -14,7 +22,7 @@ export class MockWebSocket {
 
     onopen: (() => void) | null = null;
     onclose: (() => void) | null = null;
-    onerror: ((err: any) => void) | null = null;
+    onerror: ((event: Event) => void) | null = null;
     onmessage: ((event: { data: string }) => void) | null = null;
 
     constructor(url: string, protocols: string[] = []) {
@@ -43,14 +51,14 @@ export class MockWebSocket {
     }
 
     // Helper for tests to simulate incoming server message
-    simulateMessageFromServer(data: any) {
+    simulateMessageFromServer(data: unknown) {
         if (this.onmessage) {
             this.onmessage({ data: JSON.stringify(data) });
         }
     }
 
     // Helper to parse sent messages
-    getSentJSON(): any[] {
-        return this.sentMessages.map((msg) => JSON.parse(msg));
+    getSentJSON(): SentMessage[] {
+        return this.sentMessages.map((msg) => JSON.parse(msg) as SentMessage);
     }
 }

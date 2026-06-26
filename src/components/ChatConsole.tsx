@@ -120,7 +120,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                     <Show when={props.onBack}>
                         <button
                             class="btn btn-ghost btn-sm btn-circle md:hidden shrink-0"
-                            onClick={props.onBack}
+                            onClick={() => props.onBack?.()}
                             aria-label="Back to topics"
                             title="Back to topics"
                         >
@@ -250,7 +250,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                                     stroke-linejoin="round"
                                     stroke-width="2"
                                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                ></path>
+                                />
                             </svg>
                             <div>
                                 <h3 class="font-bold">Welcome to this topic!</h3>

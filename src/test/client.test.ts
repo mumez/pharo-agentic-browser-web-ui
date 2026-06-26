@@ -41,13 +41,13 @@ describe("AbClient", () => {
         // index 0 is ping from ripple-st-client, index 1 is our request
         const request = sent.find((m) => m.type === "request" && m.address === "/topics/list");
         expect(request).toBeDefined();
-        expect(request.correlationId).toBeDefined();
+        expect(request!.correlationId).toBeDefined();
 
         // Simulate server reply
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topics/list",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: {
                 topics: [
                     {
@@ -83,7 +83,7 @@ describe("AbClient", () => {
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/agents/list",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: {
                 agents: [
                     { name: "claude-agent-acp", command: ["claude-agent-acp"] },
@@ -107,12 +107,12 @@ describe("AbClient", () => {
         const sent = ws.getSentJSON();
         const request = sent.find((m) => m.type === "request" && m.address === "/topic/select");
         expect(request).toBeDefined();
-        expect(request.body).toEqual({ topicId: "t1" });
+        expect(request!.body).toEqual({ topicId: "t1" });
 
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topic/select",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: { ok: true },
         });
 
@@ -128,13 +128,13 @@ describe("AbClient", () => {
         let sent = ws.getSentJSON();
         let promptSend = sent.find((m) => m.type === "send" && m.address === "/prompt/send");
         expect(promptSend).toBeDefined();
-        expect(promptSend.body).toEqual({ topicId: "t1", text: "hello agent" });
+        expect(promptSend!.body).toEqual({ topicId: "t1", text: "hello agent" });
 
         client.cancelPrompt("t1");
         sent = ws.getSentJSON();
         let promptCancel = sent.find((m) => m.type === "send" && m.address === "/prompt/cancel");
         expect(promptCancel).toBeDefined();
-        expect(promptCancel.body).toEqual({ topicId: "t1" });
+        expect(promptCancel!.body).toEqual({ topicId: "t1" });
     });
 
     it("should receive messages chunk via getAllMessages", async () => {
@@ -148,7 +148,7 @@ describe("AbClient", () => {
         const sent = ws.getSentJSON();
         const getAll = sent.find((m) => m.type === "send" && m.address === "/messages/getAll");
         expect(getAll).toBeDefined();
-        expect(getAll.body).toEqual({ topicId: "t1" });
+        expect(getAll!.body).toEqual({ topicId: "t1" });
 
         // Simulate chunks pushed via serverEventPushed address
         ws.simulateMessageFromServer({
@@ -233,12 +233,12 @@ describe("AbClient", () => {
         const sent = ws.getSentJSON();
         const request = sent.find((m) => m.type === "request" && m.address === "/topic/setGoal");
         expect(request).toBeDefined();
-        expect(request.body).toEqual({ topicId: "t1", goal: "Implement the login feature" });
+        expect(request!.body).toEqual({ topicId: "t1", goal: "Implement the login feature" });
 
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topic/setGoal",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: { ok: true },
         });
 
@@ -255,12 +255,12 @@ describe("AbClient", () => {
         const sent = ws.getSentJSON();
         const request = sent.find((m) => m.type === "request" && m.address === "/topic/setModel");
         expect(request).toBeDefined();
-        expect(request.body).toEqual({ topicId: "t1", optionId: "claude-opus-4-8" });
+        expect(request!.body).toEqual({ topicId: "t1", optionId: "claude-opus-4-8" });
 
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topic/setModel",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: { ok: true },
         });
 
@@ -277,12 +277,12 @@ describe("AbClient", () => {
         const sent = ws.getSentJSON();
         const request = sent.find((m) => m.type === "request" && m.address === "/topic/setMode");
         expect(request).toBeDefined();
-        expect(request.body).toEqual({ topicId: "t1", optionId: "auto" });
+        expect(request!.body).toEqual({ topicId: "t1", optionId: "auto" });
 
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topic/setMode",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: { ok: true },
         });
 
@@ -339,7 +339,7 @@ describe("AbClient", () => {
             type: "err",
             failureCode: 10007,
             message: "No model config available for: t1",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
         });
 
         await expect(setModelPromise).rejects.toMatchObject({
@@ -358,12 +358,12 @@ describe("AbClient", () => {
             (m) => m.type === "request" && m.address === "/topic/getSettings"
         );
         expect(request).toBeDefined();
-        expect(request.body).toEqual({ topicId: "t1" });
+        expect(request!.body).toEqual({ topicId: "t1" });
 
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topic/getSettings",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: {
                 settings: { useCommandOnGoalSet: true, goalSetCommand: "/goal" },
             },
@@ -390,7 +390,7 @@ describe("AbClient", () => {
             type: "err",
             failureCode: 10001,
             message: "Topic not found: nonexistent",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
         });
 
         await expect(getSettingsPromise).rejects.toMatchObject({
@@ -409,12 +409,12 @@ describe("AbClient", () => {
             (m) => m.type === "request" && m.address === "/topic/setSettings"
         );
         expect(request).toBeDefined();
-        expect(request.body).toEqual({ topicId: "t1", settings: { useCommandOnGoalSet: false } });
+        expect(request!.body).toEqual({ topicId: "t1", settings: { useCommandOnGoalSet: false } });
 
         ws.simulateMessageFromServer({
             type: "reply",
             address: "/topic/setSettings",
-            correlationId: request.correlationId,
+            correlationId: request!.correlationId,
             body: { ok: true },
         });
 

@@ -1,7 +1,8 @@
-import { createContext, useContext, createMemo, onCleanup } from "solid-js";
+import { createContext, useContext, createMemo, onCleanup, untrack } from "solid-js";
 import type { JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { AbClient } from "./client";
+import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
     TopicData,
@@ -48,6 +49,9 @@ interface AbContextValue {
     saveApp: () => Promise<void>;
     clearError: () => void;
 }
+
+const errMsg = (err: unknown, fallback: string): string =>
+    err instanceof Error ? err.message : fallback;
 
 const AbContext = createContext<AbContextValue>();
 
@@ -104,7 +108,7 @@ export function AbProvider(props: { children: JSX.Element }) {
             setState({ isConnecting: false, isConnected: false });
         });
 
-        client.onError((err: any) => {
+        client.onError((err: RippleError) => {
             console.error("Client connection error:", err);
             setState({
                 isConnecting: false,
@@ -128,7 +132,7 @@ export function AbProvider(props: { children: JSX.Element }) {
 
         client.onEvent("topicRemoved", (topicId: string) => {
             setState("topics", (prev) => prev.filter((t) => t.topicId !== topicId));
-            if (state.selectedTopicId === topicId) {
+            if (untrack(() => state.selectedTopicId) === topicId) {
                 setState({ selectedTopicId: null, messages: [] });
             }
         });
@@ -137,13 +141,13 @@ export function AbProvider(props: { children: JSX.Element }) {
             setState("topics", (t) => t.topicId === topicId, "status", status);
 
             // If this is the currently selected topic and status changed to endTurn, reload messages
-            if (state.selectedTopicId === topicId && status === "endTurn") {
+            if (untrack(() => state.selectedTopicId) === topicId && status === "endTurn") {
                 reloadMessages(topicId);
             }
         });
 
         client.onEvent("messageAdded", (topicId: string, message: MessageData) => {
-            if (state.selectedTopicId === topicId) {
+            if (untrack(() => state.selectedTopicId) === topicId) {
                 setState("messages", (prev) => {
                     const idx = prev.findIndex((m) => m.id === message.id);
                     if (idx !== -1) {
@@ -156,19 +160,19 @@ export function AbProvider(props: { children: JSX.Element }) {
         });
 
         client.onEvent("modelChanged", (topicId: string, options: ConfigOptionData | null) => {
-            if (state.selectedTopicId === topicId) {
+            if (untrack(() => state.selectedTopicId) === topicId) {
                 setState("modelOptions", reconcile(options));
             }
         });
 
         client.onEvent("modeChanged", (topicId: string, options: ConfigOptionData | null) => {
-            if (state.selectedTopicId === topicId) {
+            if (untrack(() => state.selectedTopicId) === topicId) {
                 setState("modeOptions", reconcile(options));
             }
         });
 
         client.onEvent("commandsChanged", (topicId: string, commands: CommandData[]) => {
-            if (state.selectedTopicId === topicId) {
+            if (untrack(() => state.selectedTopicId) === topicId) {
                 setState("availableCommands", commands);
             }
         });
@@ -179,8 +183,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         try {
             const agents = await client.listAgents();
             setState("agents", agents);
-        } catch (err: any) {
-            console.warn("Failed to load agents:", err.message);
+        } catch (err: unknown) {
+            console.warn("Failed to load agents:", errMsg(err, "unknown error"));
         }
     };
 
@@ -189,8 +193,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         try {
             const list = await client.listTopics();
             setState("topics", list);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to load topics");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to load topics"));
         }
     };
 
@@ -203,8 +207,8 @@ export function AbProvider(props: { children: JSX.Element }) {
             const topicId = await client.createTopic(title, agentArguments);
             await loadTopics();
             return topicId;
-        } catch (err: any) {
-            setState("error", err.message || "Failed to create topic");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to create topic"));
             throw err;
         }
     };
@@ -214,8 +218,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         try {
             await client.setTitle(topicId, title);
             setState("topics", (t) => t.topicId === topicId, "title", title);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to rename topic");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to rename topic"));
         }
     };
 
@@ -225,8 +229,8 @@ export function AbProvider(props: { children: JSX.Element }) {
             const newTopicId = await client.copyTopic(topicId);
             // topicAdded push event will add the topic to the list automatically
             await selectTopic(newTopicId);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to copy topic");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to copy topic"));
         }
     };
 
@@ -238,8 +242,8 @@ export function AbProvider(props: { children: JSX.Element }) {
             if (state.selectedTopicId === topicId) {
                 setState({ selectedTopicId: null, messages: [] });
             }
-        } catch (err: any) {
-            setState("error", err.message || "Failed to delete topic");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to delete topic"));
         }
     };
 
@@ -257,8 +261,8 @@ export function AbProvider(props: { children: JSX.Element }) {
                 modeOptions: null,
             });
             reloadMessages(topicId);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to select topic");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to select topic"));
         }
     };
 
@@ -288,8 +292,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         try {
             await client.setAgent(topicId, agentArguments);
             setState("topics", (t) => t.topicId === topicId, "agentArguments", agentArguments);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to set agent");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to set agent"));
         }
     };
 
@@ -298,8 +302,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         try {
             await client.setGoal(topicId, goal);
             setState("topics", (t) => t.topicId === topicId, "goal", goal);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to set goal");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to set goal"));
             throw err;
         }
     };
@@ -311,8 +315,8 @@ export function AbProvider(props: { children: JSX.Element }) {
                 setState("modelOptions", "currentValue", optionId);
             }
             await client.setModel(topicId, optionId);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to set model");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to set model"));
         }
     };
 
@@ -323,8 +327,8 @@ export function AbProvider(props: { children: JSX.Element }) {
                 setState("modeOptions", "currentValue", optionId);
             }
             await client.setMode(topicId, optionId);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to set mode");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to set mode"));
         }
     };
 
@@ -347,8 +351,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         if (!client) throw new Error("Not connected");
         try {
             await client.setSettings(topicId, settings);
-        } catch (err: any) {
-            setState("error", err.message || "Failed to update settings");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to update settings"));
             throw err;
         }
     };
@@ -357,8 +361,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         if (!client) return;
         try {
             await client.saveApp();
-        } catch (err: any) {
-            setState("error", err.message || "Failed to save");
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to save"));
         }
     };
 

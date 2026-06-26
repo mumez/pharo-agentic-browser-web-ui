@@ -75,8 +75,8 @@ export default function Sidebar() {
         try {
             const s = await getTopicSettings(topic.topicId);
             setTopicSettingsLocal(s);
-        } catch (err: any) {
-            setSettingsError(err?.message || "Failed to load settings");
+        } catch (err: unknown) {
+            setSettingsError(err instanceof Error ? err.message : "Failed to load settings");
         } finally {
             setSettingsLoading(false);
         }
