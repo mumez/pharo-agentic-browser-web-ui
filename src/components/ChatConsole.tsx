@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show, onCleanup } from "solid-js";
 import { useAb } from "../store";
 
 export default function ChatConsole(props: { onBack?: () => void }) {
@@ -59,10 +59,23 @@ export default function ChatConsole(props: { onBack?: () => void }) {
         }
     };
 
+    // Scrolling forces a synchronous layout reflow (scrollHeight read + scrollTop write).
+    // During heavy AI streaming, messages can arrive faster than one per frame; coalescing
+    // via rAF keeps that reflow to at most once per frame instead of once per message, so
+    // the main thread isn't monopolized and stays responsive to input (e.g. sidebar clicks).
+    let scrollRafId: number | null = null;
     createEffect(() => {
-        if (state.messages.length && messageLogRef) {
-            messageLogRef.scrollTop = messageLogRef.scrollHeight;
+        if (state.messages.length && messageLogRef && scrollRafId === null) {
+            scrollRafId = requestAnimationFrame(() => {
+                scrollRafId = null;
+                if (messageLogRef) {
+                    messageLogRef.scrollTop = messageLogRef.scrollHeight;
+                }
+            });
         }
+    });
+    onCleanup(() => {
+        if (scrollRafId !== null) cancelAnimationFrame(scrollRafId);
     });
 
     const getSenderName = (sender: string) => {
