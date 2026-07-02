@@ -101,7 +101,12 @@ export function AbProvider(props: { children: JSX.Element }) {
                         return [...prev, message];
                     });
                 }
-                setState("topics", (t) => t.topicId === topicId, "lastUpdated", message.lastUpdated);
+                setState(
+                    "topics",
+                    (t) => t.topicId === topicId,
+                    "lastUpdated",
+                    message.lastUpdated
+                );
             }
         });
     };
