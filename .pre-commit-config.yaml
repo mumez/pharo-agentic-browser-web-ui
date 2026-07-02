@@ -1,0 +1,14 @@
+repos:
+  - repo: local
+    hooks:
+      - id: eslint
+        name: eslint
+        entry: npx eslint --fix
+        language: system
+        files: ^src/.*\.tsx?$
+
+      - id: prettier
+        name: prettier
+        entry: npx prettier --write
+        language: system
+        files: ^src/.*\.(ts|tsx|css)$
