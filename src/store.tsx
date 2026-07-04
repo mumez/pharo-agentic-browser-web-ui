@@ -2,6 +2,7 @@ import { createContext, useContext, createMemo, onCleanup, untrack } from "solid
 import type { JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { AbClient } from "./client";
+import { PermissionNotificationBatcher, createBrowserNotificationApi } from "./permissionNotificationBatcher";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -53,6 +54,10 @@ interface AbContextValue {
 const errMsg = (err: unknown, fallback: string): string =>
     err instanceof Error ? err.message : fallback;
 
+const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalOption">) =>
+    (message.type === "aiPermission" || message.type === "exportApproval") &&
+    message.approvalOption === null;
+
 const AbContext = createContext<AbContextValue>();
 
 export function AbProvider(props: { children: JSX.Element }) {
@@ -70,6 +75,16 @@ export function AbProvider(props: { children: JSX.Element }) {
     });
 
     let client: AbClient | null = null;
+    const permissionNotificationBatcher = new PermissionNotificationBatcher({
+        aggregationWindowMs: 3000,
+        isDocumentHidden: () => document.visibilityState === "hidden",
+        notificationApi: createBrowserNotificationApi(),
+        getTopicTitle: (topicId: string) =>
+            state.topics.find((topic) => topic.topicId === topicId)?.title ?? topicId,
+        onActivate: () => {
+            window.focus();
+        },
+    });
 
     const handleVisibilityChange = () => {
         if (document.visibilityState === "hidden" && client) {
@@ -78,7 +93,10 @@ export function AbProvider(props: { children: JSX.Element }) {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    onCleanup(() => document.removeEventListener("visibilitychange", handleVisibilityChange));
+    onCleanup(() => {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+        permissionNotificationBatcher.dispose();
+    });
 
     const selectedTopic = createMemo(() => {
         return state.topics.find((t) => t.topicId === state.selectedTopicId) || null;
@@ -157,6 +175,10 @@ export function AbProvider(props: { children: JSX.Element }) {
                 });
             }
             setState("topics", (t) => t.topicId === topicId, "lastUpdated", message.lastUpdated);
+
+            if (isPendingApprovalMessage(message)) {
+                permissionNotificationBatcher.queuePermissionRequest(topicId);
+            }
         });
 
         client.onEvent("modelChanged", (topicId: string, options: ConfigOptionData | null) => {
@@ -373,9 +395,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         // Optimistically resolve locally
         setState(
             "messages",
-            (m) =>
-                (m.type === "aiPermission" || m.type === "exportApproval") &&
-                m.approvalOption === null,
+            (m) => isPendingApprovalMessage(m),
             "approvalOption",
             optionId
         );
