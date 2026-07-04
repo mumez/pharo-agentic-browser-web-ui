@@ -74,6 +74,23 @@ describe("PermissionNotificationBatcher", () => {
         expect(MockNotification.created).toHaveLength(0);
     });
 
+    it("does not notify when tab returns to foreground before flush", async () => {
+        let hidden = true;
+        const batcher = new PermissionNotificationBatcher({
+            aggregationWindowMs: 3000,
+            isDocumentHidden: () => hidden,
+            notificationApi: createNotificationApi("granted"),
+            getTopicTitle: (topicId) => topicId,
+            onActivate: vi.fn(),
+        });
+
+        batcher.queuePermissionRequest("t1");
+        hidden = false;
+        await vi.runAllTimersAsync();
+
+        expect(MockNotification.created).toHaveLength(0);
+    });
+
     it("requests permission when needed before showing notification", async () => {
         const notificationApi = createNotificationApi("default", "granted");
         const batcher = new PermissionNotificationBatcher({

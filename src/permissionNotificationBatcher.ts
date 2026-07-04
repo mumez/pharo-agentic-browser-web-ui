@@ -63,6 +63,7 @@ export class PermissionNotificationBatcher {
         this.pendingRequestCount = 0;
 
         if (topicIds.length === 0 || requestCount === 0) return;
+        if (!this.options.isDocumentHidden()) return;
 
         const permission = await this.ensurePermission();
         if (permission !== "granted") return;
@@ -81,7 +82,6 @@ export class PermissionNotificationBatcher {
         const notification = this.options.notificationApi?.createNotification(title, {
             body,
             tag: "agent-permission-request",
-            renotify: false,
         });
         if (!notification) return;
 
