@@ -5,7 +5,10 @@ export interface BrowserNotificationInstance {
 export interface BrowserNotificationApi {
     permission: NotificationPermission;
     requestPermission?: () => Promise<NotificationPermission>;
-    createNotification: (title: string, options?: NotificationOptions) => BrowserNotificationInstance;
+    createNotification: (
+        title: string,
+        options?: NotificationOptions
+    ) => BrowserNotificationInstance;
 }
 
 interface PermissionNotificationBatcherOptions {
@@ -109,18 +112,18 @@ export class PermissionNotificationBatcher {
 
         const pendingPermissionRequest: Promise<NotificationPermission> =
             this.options.notificationApi
-            .requestPermission()
-            .then((permission) => {
-                this.currentPermission = permission;
-                return permission;
-            })
-            .catch(() => {
-                this.currentPermission = "denied";
-                return "denied" as NotificationPermission;
-            })
-            .finally(() => {
-                this.inflightPermission = null;
-            });
+                .requestPermission()
+                .then((permission) => {
+                    this.currentPermission = permission;
+                    return permission;
+                })
+                .catch(() => {
+                    this.currentPermission = "denied";
+                    return "denied" as NotificationPermission;
+                })
+                .finally(() => {
+                    this.inflightPermission = null;
+                });
 
         this.inflightPermission = pendingPermissionRequest;
         return pendingPermissionRequest;

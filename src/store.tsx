@@ -2,7 +2,10 @@ import { batch, createContext, useContext, createMemo, onCleanup, untrack } from
 import type { JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { AbClient } from "./client";
-import { PermissionNotificationBatcher, createBrowserNotificationApi } from "./permissionNotificationBatcher";
+import {
+    PermissionNotificationBatcher,
+    createBrowserNotificationApi,
+} from "./permissionNotificationBatcher";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -456,12 +459,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         }
 
         // Optimistically resolve locally
-        setState(
-            "messages",
-            (m) => isPendingApprovalMessage(m),
-            "approvalOption",
-            optionId
-        );
+        setState("messages", (m) => isPendingApprovalMessage(m), "approvalOption", optionId);
     };
 
     return (
