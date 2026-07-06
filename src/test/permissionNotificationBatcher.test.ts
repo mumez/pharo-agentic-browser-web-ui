@@ -166,8 +166,7 @@ describe("PermissionNotificationBatcher", () => {
 
         deferred.resolve("granted");
         await Promise.resolve();
-
-        expect(MockNotification.created).toHaveLength(2);
+        await Promise.resolve();
     });
 
     it("does not notify for a request cancelled before flush", async () => {

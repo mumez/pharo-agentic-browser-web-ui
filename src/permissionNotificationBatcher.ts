@@ -107,18 +107,23 @@ export class PermissionNotificationBatcher {
             return this.inflightPermission;
         }
 
-        this.inflightPermission = this.options.notificationApi
+        const pendingPermissionRequest: Promise<NotificationPermission> =
+            this.options.notificationApi
             .requestPermission()
             .then((permission) => {
                 this.currentPermission = permission;
                 return permission;
             })
-            .catch(() => "denied")
+            .catch(() => {
+                this.currentPermission = "denied";
+                return "denied" as NotificationPermission;
+            })
             .finally(() => {
                 this.inflightPermission = null;
             });
 
-        return this.inflightPermission;
+        this.inflightPermission = pendingPermissionRequest;
+        return pendingPermissionRequest;
     }
 }
 
