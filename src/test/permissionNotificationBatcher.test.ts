@@ -27,6 +27,19 @@ function createNotificationApi(
     } satisfies BrowserNotificationApi;
 }
 
+function createDeferredPermissionRequest() {
+    let resolvePromise: ((value: NotificationPermission) => void) | null = null;
+    const promise = new Promise<NotificationPermission>((resolve) => {
+        resolvePromise = resolve;
+    });
+    return {
+        promise,
+        resolve: (permission: NotificationPermission) => {
+            resolvePromise?.(permission);
+        },
+    };
+}
+
 describe("PermissionNotificationBatcher", () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -48,8 +61,8 @@ describe("PermissionNotificationBatcher", () => {
             onActivate,
         });
 
-        batcher.queuePermissionRequest("t1");
-        batcher.queuePermissionRequest("t2");
+        batcher.queuePermissionRequest("t1", "m1");
+        batcher.queuePermissionRequest("t2", "m2");
         await vi.runAllTimersAsync();
 
         expect(MockNotification.created).toHaveLength(1);
@@ -68,7 +81,7 @@ describe("PermissionNotificationBatcher", () => {
             onActivate: vi.fn(),
         });
 
-        batcher.queuePermissionRequest("t1");
+        batcher.queuePermissionRequest("t1", "m1");
         await vi.runAllTimersAsync();
 
         expect(MockNotification.created).toHaveLength(0);
@@ -84,7 +97,7 @@ describe("PermissionNotificationBatcher", () => {
             onActivate: vi.fn(),
         });
 
-        batcher.queuePermissionRequest("t1");
+        batcher.queuePermissionRequest("t1", "m1");
         hidden = false;
         await vi.runAllTimersAsync();
 
@@ -101,7 +114,7 @@ describe("PermissionNotificationBatcher", () => {
             onActivate: vi.fn(),
         });
 
-        batcher.queuePermissionRequest("t1");
+        batcher.queuePermissionRequest("t1", "m1");
         await vi.runAllTimersAsync();
 
         expect(notificationApi.requestPermission).toHaveBeenCalledTimes(1);
@@ -118,12 +131,58 @@ describe("PermissionNotificationBatcher", () => {
             onActivate,
         });
 
-        batcher.queuePermissionRequest("t1");
+        batcher.queuePermissionRequest("t1", "m1");
         await vi.runAllTimersAsync();
 
         const instance = MockNotification.instances[0];
         expect(instance).toBeDefined();
         instance.onclick?.call(instance as unknown as Notification, new Event("click"));
         expect(onActivate).toHaveBeenCalledTimes(1);
+    });
+
+    it("reuses in-flight permission request promise across flushes", async () => {
+        const deferred = createDeferredPermissionRequest();
+        const requestPermission = vi.fn(() => deferred.promise);
+        const batcher = new PermissionNotificationBatcher({
+            aggregationWindowMs: 3000,
+            isDocumentHidden: () => true,
+            notificationApi: {
+                permission: "default",
+                createNotification: (title: string, options?: NotificationOptions) =>
+                    new MockNotification(title, options),
+                requestPermission,
+            },
+            getTopicTitle: (topicId) => topicId,
+            onActivate: vi.fn(),
+        });
+
+        batcher.queuePermissionRequest("t1", "m1");
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(requestPermission).toHaveBeenCalledTimes(1);
+
+        batcher.queuePermissionRequest("t2", "m2");
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(requestPermission).toHaveBeenCalledTimes(1);
+
+        deferred.resolve("granted");
+        await Promise.resolve();
+
+        expect(MockNotification.created).toHaveLength(2);
+    });
+
+    it("does not notify for a request cancelled before flush", async () => {
+        const batcher = new PermissionNotificationBatcher({
+            aggregationWindowMs: 3000,
+            isDocumentHidden: () => true,
+            notificationApi: createNotificationApi("granted"),
+            getTopicTitle: (topicId) => topicId,
+            onActivate: vi.fn(),
+        });
+
+        batcher.queuePermissionRequest("t1", "m1");
+        batcher.cancelPendingPermissionRequest("m1");
+        await vi.runAllTimersAsync();
+
+        expect(MockNotification.created).toHaveLength(0);
     });
 });

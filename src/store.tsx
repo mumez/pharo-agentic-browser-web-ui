@@ -58,6 +58,9 @@ const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalO
     (message.type === "aiPermission" || message.type === "exportApproval") &&
     message.approvalOption === null;
 
+const isApprovalMessage = (message: Pick<MessageData, "type">) =>
+    message.type === "aiPermission" || message.type === "exportApproval";
+
 const AbContext = createContext<AbContextValue>();
 
 export function AbProvider(props: { children: JSX.Element }) {
@@ -177,7 +180,9 @@ export function AbProvider(props: { children: JSX.Element }) {
             setState("topics", (t) => t.topicId === topicId, "lastUpdated", message.lastUpdated);
 
             if (isPendingApprovalMessage(message)) {
-                permissionNotificationBatcher.queuePermissionRequest(topicId);
+                permissionNotificationBatcher.queuePermissionRequest(topicId, message.id);
+            } else if (isApprovalMessage(message)) {
+                permissionNotificationBatcher.cancelPendingPermissionRequest(message.id);
             }
         });
 
@@ -390,7 +395,14 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const resolveApproval = (optionId: string) => {
         if (!client || !state.selectedTopicId) return;
+        const pendingMessageId = [...state.messages]
+            .reverse()
+            .find((message) => isPendingApprovalMessage(message))?.id;
         client.resolveApproval(state.selectedTopicId, optionId);
+
+        if (pendingMessageId) {
+            permissionNotificationBatcher.cancelPendingPermissionRequest(pendingMessageId);
+        }
 
         // Optimistically resolve locally
         setState(

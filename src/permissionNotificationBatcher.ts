@@ -20,10 +20,10 @@ const DEFAULT_AGGREGATION_WINDOW_MS = 3000;
 
 export class PermissionNotificationBatcher {
     private readonly options: PermissionNotificationBatcherOptions;
-    private pendingTopicIds = new Set<string>();
-    private pendingRequestCount = 0;
+    private pendingMessageTopicMap = new Map<string, string>();
     private flushTimer: ReturnType<typeof setTimeout> | null = null;
     private currentPermission: NotificationPermission;
+    private inflightPermission: Promise<NotificationPermission> | null = null;
 
     constructor(options: PermissionNotificationBatcherOptions) {
         this.options = {
@@ -33,12 +33,11 @@ export class PermissionNotificationBatcher {
         this.currentPermission = options.notificationApi?.permission ?? "denied";
     }
 
-    queuePermissionRequest(topicId: string) {
+    queuePermissionRequest(topicId: string, messageId: string) {
         if (!this.options.isDocumentHidden()) return;
         if (!this.options.notificationApi) return;
 
-        this.pendingRequestCount += 1;
-        this.pendingTopicIds.add(topicId);
+        this.pendingMessageTopicMap.set(messageId, topicId);
 
         if (this.flushTimer !== null) return;
         this.flushTimer = setTimeout(() => {
@@ -47,20 +46,23 @@ export class PermissionNotificationBatcher {
         }, this.options.aggregationWindowMs);
     }
 
+    cancelPendingPermissionRequest(messageId: string) {
+        this.pendingMessageTopicMap.delete(messageId);
+    }
+
     dispose() {
         if (this.flushTimer !== null) {
             clearTimeout(this.flushTimer);
             this.flushTimer = null;
         }
-        this.pendingTopicIds.clear();
-        this.pendingRequestCount = 0;
+        this.pendingMessageTopicMap.clear();
+        this.inflightPermission = null;
     }
 
     private async flushPendingNotification() {
-        const topicIds = [...this.pendingTopicIds];
-        const requestCount = this.pendingRequestCount;
-        this.pendingTopicIds.clear();
-        this.pendingRequestCount = 0;
+        const topicIds = [...new Set(this.pendingMessageTopicMap.values())];
+        const requestCount = this.pendingMessageTopicMap.size;
+        this.pendingMessageTopicMap.clear();
 
         if (topicIds.length === 0 || requestCount === 0) return;
         if (!this.options.isDocumentHidden()) return;
@@ -101,12 +103,22 @@ export class PermissionNotificationBatcher {
             return this.currentPermission;
         }
 
-        try {
-            this.currentPermission = await this.options.notificationApi.requestPermission();
-            return this.currentPermission;
-        } catch {
-            return "denied";
+        if (this.inflightPermission) {
+            return this.inflightPermission;
         }
+
+        this.inflightPermission = this.options.notificationApi
+            .requestPermission()
+            .then((permission) => {
+                this.currentPermission = permission;
+                return permission;
+            })
+            .catch(() => "denied")
+            .finally(() => {
+                this.inflightPermission = null;
+            });
+
+        return this.inflightPermission;
     }
 }
 
