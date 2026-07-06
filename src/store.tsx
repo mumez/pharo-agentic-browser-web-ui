@@ -2,6 +2,7 @@ import { batch, createContext, useContext, createMemo, onCleanup, untrack } from
 import type { JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { AbClient } from "./client";
+import { PermissionNotificationBatcher, createBrowserNotificationApi } from "./permissionNotificationBatcher";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -52,6 +53,13 @@ interface AbContextValue {
 
 const errMsg = (err: unknown, fallback: string): string =>
     err instanceof Error ? err.message : fallback;
+
+const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalOption">) =>
+    (message.type === "aiPermission" || message.type === "exportApproval") &&
+    message.approvalOption === null;
+
+const isApprovalMessage = (message: Pick<MessageData, "type">) =>
+    message.type === "aiPermission" || message.type === "exportApproval";
 
 const AbContext = createContext<AbContextValue>();
 
@@ -116,6 +124,17 @@ export function AbProvider(props: { children: JSX.Element }) {
         messageFlushRafId = requestAnimationFrame(flushPendingMessageAdds);
     };
 
+    const permissionNotificationBatcher = new PermissionNotificationBatcher({
+        aggregationWindowMs: 3000,
+        isDocumentHidden: () => document.visibilityState === "hidden",
+        notificationApi: createBrowserNotificationApi(),
+        getTopicTitle: (topicId: string) =>
+            state.topics.find((topic) => topic.topicId === topicId)?.title ?? topicId,
+        onActivate: () => {
+            window.focus();
+        },
+    });
+
     const handleVisibilityChange = () => {
         if (document.visibilityState === "hidden" && client) {
             client.saveApp().catch(() => {});
@@ -126,6 +145,7 @@ export function AbProvider(props: { children: JSX.Element }) {
     onCleanup(() => {
         cancelMessageFlush();
         document.removeEventListener("visibilitychange", handleVisibilityChange);
+        permissionNotificationBatcher.dispose();
     });
 
     const selectedTopic = createMemo(() => {
@@ -201,6 +221,12 @@ export function AbProvider(props: { children: JSX.Element }) {
             // Coalesce rapid push events so the main thread stays responsive (e.g. sidebar clicks).
             pendingMessageAdds.push({ topicId, message });
             scheduleMessageFlush();
+
+            if (isPendingApprovalMessage(message)) {
+                permissionNotificationBatcher.queuePermissionRequest(topicId, message.id);
+            } else if (isApprovalMessage(message)) {
+                permissionNotificationBatcher.cancelPendingPermissionRequest(message.id);
+            }
         });
 
         client.onEvent("modelChanged", (topicId: string, options: ConfigOptionData | null) => {
@@ -420,14 +446,19 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const resolveApproval = (optionId: string) => {
         if (!client || !state.selectedTopicId) return;
+        const pendingMessageId = [...state.messages]
+            .reverse()
+            .find((message) => isPendingApprovalMessage(message))?.id;
         client.resolveApproval(state.selectedTopicId, optionId);
+
+        if (pendingMessageId) {
+            permissionNotificationBatcher.cancelPendingPermissionRequest(pendingMessageId);
+        }
 
         // Optimistically resolve locally
         setState(
             "messages",
-            (m) =>
-                (m.type === "aiPermission" || m.type === "exportApproval") &&
-                m.approvalOption === null,
+            (m) => isPendingApprovalMessage(m),
             "approvalOption",
             optionId
         );
