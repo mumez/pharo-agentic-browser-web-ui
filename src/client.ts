@@ -48,20 +48,26 @@ export class AbClient {
         const url = `${wsScheme}://${host}:${port}/ws/agentic-browser?token=${sessionId}`;
         this.ripple = new Ripple(url);
         this.ripple.onOpen(() => {
-            this.ripple.registerHandler("serverEventPushed", (body: unknown, err: RippleError | null) => {
-                if (err) {
-                    console.error("Push error:", err);
-                    return;
+            this.ripple.registerHandler(
+                "serverEventPushed",
+                (body: unknown, err: RippleError | null) => {
+                    if (err) {
+                        console.error("Push error:", err);
+                        return;
+                    }
+                    this.handlePushEvent(body);
                 }
-                this.handlePushEvent(body);
-            });
-            this.ripple.registerHandler("topicsUpdated", (body: unknown, err: RippleError | null) => {
-                if (err) {
-                    console.error("topicsUpdated error:", err);
-                    return;
+            );
+            this.ripple.registerHandler(
+                "topicsUpdated",
+                (body: unknown, err: RippleError | null) => {
+                    if (err) {
+                        console.error("topicsUpdated error:", err);
+                        return;
+                    }
+                    this.handleTopicsUpdated(body as { requesterId: string });
                 }
-                this.handleTopicsUpdated(body as { requesterId: string });
-            });
+            );
             if (this.openHandler) this.openHandler(this);
         });
     }
@@ -88,34 +94,43 @@ export class AbClient {
         const eventName = pb.event;
 
         if (eventName === "messages") {
-            const handlers = (this.eventHandlers.get("messages") ?? []) as EventHandlerMap["messages"][];
+            const handlers = (this.eventHandlers.get("messages") ??
+                []) as EventHandlerMap["messages"][];
             handlers.forEach((fn) => fn(pb.messages ?? [], pb.done ?? false));
         } else if (eventName === "messageAdded") {
-            const handlers = (this.eventHandlers.get("messageAdded") ?? []) as EventHandlerMap["messageAdded"][];
+            const handlers = (this.eventHandlers.get("messageAdded") ??
+                []) as EventHandlerMap["messageAdded"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.message!));
         } else if (eventName === "statusChanged") {
-            const handlers = (this.eventHandlers.get("statusChanged") ?? []) as EventHandlerMap["statusChanged"][];
+            const handlers = (this.eventHandlers.get("statusChanged") ??
+                []) as EventHandlerMap["statusChanged"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.status!));
         } else if (eventName === "modelChanged") {
-            const handlers = (this.eventHandlers.get("modelChanged") ?? []) as EventHandlerMap["modelChanged"][];
+            const handlers = (this.eventHandlers.get("modelChanged") ??
+                []) as EventHandlerMap["modelChanged"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.options ?? null));
         } else if (eventName === "modeChanged") {
-            const handlers = (this.eventHandlers.get("modeChanged") ?? []) as EventHandlerMap["modeChanged"][];
+            const handlers = (this.eventHandlers.get("modeChanged") ??
+                []) as EventHandlerMap["modeChanged"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.options ?? null));
         } else if (eventName === "commandsChanged") {
-            const handlers = (this.eventHandlers.get("commandsChanged") ?? []) as EventHandlerMap["commandsChanged"][];
+            const handlers = (this.eventHandlers.get("commandsChanged") ??
+                []) as EventHandlerMap["commandsChanged"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.commands ?? []));
         } else if (eventName === "topicAdded") {
-            const handlers = (this.eventHandlers.get("topicAdded") ?? []) as EventHandlerMap["topicAdded"][];
+            const handlers = (this.eventHandlers.get("topicAdded") ??
+                []) as EventHandlerMap["topicAdded"][];
             handlers.forEach((fn) => fn(pb.topic!));
         } else if (eventName === "topicRemoved") {
-            const handlers = (this.eventHandlers.get("topicRemoved") ?? []) as EventHandlerMap["topicRemoved"][];
+            const handlers = (this.eventHandlers.get("topicRemoved") ??
+                []) as EventHandlerMap["topicRemoved"][];
             handlers.forEach((fn) => fn(pb.topicId!));
         }
     }
 
     private handleTopicsUpdated(body: { requesterId: string }) {
-        const handlers = (this.eventHandlers.get("topicsUpdated") ?? []) as EventHandlerMap["topicsUpdated"][];
+        const handlers = (this.eventHandlers.get("topicsUpdated") ??
+            []) as EventHandlerMap["topicsUpdated"][];
         handlers.forEach((fn) => fn(body.requesterId));
     }
 

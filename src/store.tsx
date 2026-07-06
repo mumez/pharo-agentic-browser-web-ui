@@ -1,8 +1,11 @@
-import { createContext, useContext, createMemo, onCleanup, untrack } from "solid-js";
+import { batch, createContext, useContext, createMemo, onCleanup, untrack } from "solid-js";
 import type { JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { AbClient } from "./client";
-import { PermissionNotificationBatcher, createBrowserNotificationApi } from "./permissionNotificationBatcher";
+import {
+    PermissionNotificationBatcher,
+    createBrowserNotificationApi,
+} from "./permissionNotificationBatcher";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -78,6 +81,52 @@ export function AbProvider(props: { children: JSX.Element }) {
     });
 
     let client: AbClient | null = null;
+    let selectGeneration = 0;
+    let reloadGeneration = 0;
+    let pendingMessageAdds: Array<{ topicId: string; message: MessageData }> = [];
+    let messageFlushRafId: number | null = null;
+
+    const cancelMessageFlush = () => {
+        if (messageFlushRafId !== null) {
+            cancelAnimationFrame(messageFlushRafId);
+            messageFlushRafId = null;
+        }
+        pendingMessageAdds = [];
+    };
+
+    const flushPendingMessageAdds = () => {
+        messageFlushRafId = null;
+        const adds = pendingMessageAdds;
+        pendingMessageAdds = [];
+        if (adds.length === 0) return;
+
+        batch(() => {
+            const selectedId = untrack(() => state.selectedTopicId);
+            for (const { topicId, message } of adds) {
+                if (selectedId === topicId) {
+                    setState("messages", (prev) => {
+                        const idx = prev.findIndex((m) => m.id === message.id);
+                        if (idx !== -1) {
+                            return [...prev.slice(0, idx), message, ...prev.slice(idx + 1)];
+                        }
+                        return [...prev, message];
+                    });
+                }
+                setState(
+                    "topics",
+                    (t) => t.topicId === topicId,
+                    "lastUpdated",
+                    message.lastUpdated
+                );
+            }
+        });
+    };
+
+    const scheduleMessageFlush = () => {
+        if (messageFlushRafId !== null) return;
+        messageFlushRafId = requestAnimationFrame(flushPendingMessageAdds);
+    };
+
     const permissionNotificationBatcher = new PermissionNotificationBatcher({
         aggregationWindowMs: 3000,
         isDocumentHidden: () => document.visibilityState === "hidden",
@@ -97,6 +146,7 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     onCleanup(() => {
+        cancelMessageFlush();
         document.removeEventListener("visibilitychange", handleVisibilityChange);
         permissionNotificationBatcher.dispose();
     });
@@ -111,6 +161,9 @@ export function AbProvider(props: { children: JSX.Element }) {
         if (client) {
             client.close();
         }
+        cancelMessageFlush();
+        selectGeneration = 0;
+        reloadGeneration = 0;
 
         setState({ isConnecting: true, isConnected: false, error: null });
 
@@ -168,16 +221,9 @@ export function AbProvider(props: { children: JSX.Element }) {
         });
 
         client.onEvent("messageAdded", (topicId: string, message: MessageData) => {
-            if (untrack(() => state.selectedTopicId) === topicId) {
-                setState("messages", (prev) => {
-                    const idx = prev.findIndex((m) => m.id === message.id);
-                    if (idx !== -1) {
-                        return [...prev.slice(0, idx), message, ...prev.slice(idx + 1)];
-                    }
-                    return [...prev, message];
-                });
-            }
-            setState("topics", (t) => t.topicId === topicId, "lastUpdated", message.lastUpdated);
+            // Coalesce rapid push events so the main thread stays responsive (e.g. sidebar clicks).
+            pendingMessageAdds.push({ topicId, message });
+            scheduleMessageFlush();
 
             if (isPendingApprovalMessage(message)) {
                 permissionNotificationBatcher.queuePermissionRequest(topicId, message.id);
@@ -276,19 +322,25 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const selectTopic = async (topicId: string) => {
         if (!client) return;
+        if (state.selectedTopicId === topicId) return;
+
+        const generation = ++selectGeneration;
+
+        // Update UI immediately; server select is fire-and-forget from the user's perspective.
+        setState({
+            selectedTopicId: topicId,
+            messages: [],
+            availableCommands: [],
+            modelOptions: null,
+            modeOptions: null,
+        });
+        reloadMessages(topicId);
+
         try {
             await client.selectTopic(topicId);
-            // Clear state immediately; commandsChanged/modelChanged/modeChanged push events
-            // will arrive shortly after the reply and populate these via the event handlers.
-            setState({
-                selectedTopicId: topicId,
-                messages: [],
-                availableCommands: [],
-                modelOptions: null,
-                modeOptions: null,
-            });
-            reloadMessages(topicId);
+            if (generation !== selectGeneration) return;
         } catch (err: unknown) {
+            if (generation !== selectGeneration) return;
             setState("error", errMsg(err, "Failed to select topic"));
         }
     };
@@ -305,8 +357,10 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const reloadMessages = (topicId: string) => {
         if (!client) return;
+        const generation = ++reloadGeneration;
         let accumulatedMessages: MessageData[] = [];
         client.getAllMessages(topicId, (chunk, done) => {
+            if (generation !== reloadGeneration) return;
             accumulatedMessages = [...accumulatedMessages, ...chunk];
             if (done) {
                 setState("messages", accumulatedMessages);
@@ -405,12 +459,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         }
 
         // Optimistically resolve locally
-        setState(
-            "messages",
-            (m) => isPendingApprovalMessage(m),
-            "approvalOption",
-            optionId
-        );
+        setState("messages", (m) => isPendingApprovalMessage(m), "approvalOption", optionId);
     };
 
     return (
