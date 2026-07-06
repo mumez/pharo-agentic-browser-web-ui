@@ -1,4 +1,13 @@
-import { batch, createContext, useContext, createMemo, onCleanup, untrack } from "solid-js";
+import {
+    batch,
+    createContext,
+    useContext,
+    createMemo,
+    createSignal,
+    createEffect,
+    onCleanup,
+    untrack,
+} from "solid-js";
 import type { JSX } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import { AbClient } from "./client";
@@ -63,6 +72,8 @@ const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalO
 
 const isApprovalMessage = (message: Pick<MessageData, "type">) =>
     message.type === "aiPermission" || message.type === "exportApproval";
+
+const BASE_TITLE = document.title;
 
 const AbContext = createContext<AbContextValue>();
 
@@ -138,9 +149,17 @@ export function AbProvider(props: { children: JSX.Element }) {
         },
     });
 
+    const [hasNewMessage, setHasNewMessage] = createSignal(false);
+
     const handleVisibilityChange = () => {
         if (document.visibilityState === "hidden" && client) {
             client.saveApp().catch(() => {});
+        } else {
+            // Safe to clear unconditionally: hasNewMessage is only ever set for the topic
+            // that was selected at the time (see messageAdded handler below), and the
+            // selection can't change while the tab is hidden, so it still refers to the
+            // topic the user is now looking at.
+            setHasNewMessage(false);
         }
     };
 
@@ -149,10 +168,25 @@ export function AbProvider(props: { children: JSX.Element }) {
         cancelMessageFlush();
         document.removeEventListener("visibilitychange", handleVisibilityChange);
         permissionNotificationBatcher.dispose();
+        document.title = BASE_TITLE;
     });
 
     const selectedTopic = createMemo(() => {
         return state.topics.find((t) => t.topicId === state.selectedTopicId) || null;
+    });
+
+    const hasPendingApproval = createMemo(() =>
+        state.messages.some((message) => isPendingApprovalMessage(message))
+    );
+
+    createEffect(() => {
+        const topic = selectedTopic();
+        if (!topic) {
+            document.title = BASE_TITLE;
+            return;
+        }
+        const prefix = hasPendingApproval() ? "?" : hasNewMessage() ? "*" : "";
+        document.title = `${prefix}${topic.title} | ${BASE_TITLE}`;
     });
 
     const clearError = () => setState("error", null);
@@ -207,6 +241,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         client.onEvent("topicRemoved", (topicId: string) => {
             setState("topics", (prev) => prev.filter((t) => t.topicId !== topicId));
             if (untrack(() => state.selectedTopicId) === topicId) {
+                setHasNewMessage(false);
                 setState({ selectedTopicId: null, messages: [] });
             }
         });
@@ -224,6 +259,13 @@ export function AbProvider(props: { children: JSX.Element }) {
             // Coalesce rapid push events so the main thread stays responsive (e.g. sidebar clicks).
             pendingMessageAdds.push({ topicId, message });
             scheduleMessageFlush();
+
+            if (
+                document.visibilityState === "hidden" &&
+                topicId === untrack(() => state.selectedTopicId)
+            ) {
+                setHasNewMessage(true);
+            }
 
             if (isPendingApprovalMessage(message)) {
                 permissionNotificationBatcher.queuePermissionRequest(topicId, message.id);
@@ -313,6 +355,7 @@ export function AbProvider(props: { children: JSX.Element }) {
             await client.deleteTopic(topicId);
             setState("topics", (prev) => prev.filter((t) => t.topicId !== topicId));
             if (state.selectedTopicId === topicId) {
+                setHasNewMessage(false);
                 setState({ selectedTopicId: null, messages: [] });
             }
         } catch (err: unknown) {
@@ -325,6 +368,8 @@ export function AbProvider(props: { children: JSX.Element }) {
         if (state.selectedTopicId === topicId) return;
 
         const generation = ++selectGeneration;
+
+        setHasNewMessage(false);
 
         // Update UI immediately; server select is fire-and-forget from the user's perspective.
         setState({
@@ -346,6 +391,7 @@ export function AbProvider(props: { children: JSX.Element }) {
     };
 
     const deselectTopic = () => {
+        setHasNewMessage(false);
         setState({
             selectedTopicId: null,
             messages: [],
