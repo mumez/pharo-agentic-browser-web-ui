@@ -1,11 +1,26 @@
 import { createEffect, createMemo, createSignal, For, Show, onCleanup } from "solid-js";
 import { useAb } from "../store";
+import { agentDisplayName } from "../utils";
 
 export default function ChatConsole(props: { onBack?: () => void }) {
     const { state, selectedTopic, resolveApproval, setModel, setMode } = useAb();
     let messageLogRef: HTMLDivElement | undefined;
 
     const isWorking = createMemo(() => selectedTopic()?.status === "working");
+
+    const [isInfoModalOpen, setIsInfoModalOpen] = createSignal(false);
+
+    const topicInfoItems = createMemo(() => {
+        const topic = selectedTopic();
+        if (!topic) return [];
+        return [
+            { label: "Topic ID", value: topic.topicId },
+            { label: "Title", value: topic.title },
+            { label: "Agent", value: agentDisplayName(topic.agentArguments, state.agents) },
+            { label: "Last Updated", value: topic.lastUpdated },
+            { label: "Working Directory Path", value: topic.workingDirectoryPath || "(none)" },
+        ];
+    });
 
     const [collapsedThinkIds, setCollapsedThinkIds] = createSignal<Set<string>>(new Set());
 
@@ -155,8 +170,30 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                         </button>
                     </Show>
                     <div class="min-w-0 flex-1">
-                        <h2 class="font-bold text-base md:text-lg leading-tight truncate">
-                            {selectedTopic()?.title}
+                        <h2 class="font-bold text-base md:text-lg leading-tight truncate flex items-center gap-1.5">
+                            <span class="truncate">{selectedTopic()?.title}</span>
+                            <button
+                                class="btn btn-ghost btn-xs btn-circle shrink-0"
+                                onClick={() => setIsInfoModalOpen(true)}
+                                aria-label="Topic info"
+                                title="Topic info"
+                            >
+                                <svg
+                                    aria-hidden="true"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-4 w-4 opacity-60"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    />
+                                </svg>
+                            </button>
                         </h2>
                         <div class="hidden md:flex items-center gap-1.5 mt-0.5 text-xs opacity-60">
                             <span class="font-mono bg-base-200 px-1 rounded truncate max-w-[150px]">
@@ -438,6 +475,40 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                         )}
                     </For>
                 </div>
+
+                {/* Topic Info Modal */}
+                <Show when={isInfoModalOpen()}>
+                    <div class="modal modal-open" onClick={() => setIsInfoModalOpen(false)}>
+                        <div
+                            class="modal-box max-w-sm rounded-2xl bg-base-100 shadow-2xl p-0 overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div class="p-5 border-b border-base-200">
+                                <h3 class="font-bold text-lg">Topic Info</h3>
+                            </div>
+                            <div class="p-5 space-y-3">
+                                <For each={topicInfoItems()}>
+                                    {(item) => (
+                                        <div>
+                                            <div class="text-xs opacity-60">{item.label}</div>
+                                            <div class="text-sm font-mono break-all">
+                                                {item.value}
+                                            </div>
+                                        </div>
+                                    )}
+                                </For>
+                            </div>
+                            <div class="p-3 border-t border-base-200 flex justify-end">
+                                <button
+                                    class="btn btn-ghost btn-sm"
+                                    onClick={() => setIsInfoModalOpen(false)}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Show>
             </Show>
         </div>
     );

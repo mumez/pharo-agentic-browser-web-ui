@@ -195,10 +195,11 @@ export default function InputArea() {
                         <textarea
                             class="textarea textarea-bordered w-full rounded-2xl min-h-[44px] max-h-40 resize-none py-2.5 font-sans leading-relaxed text-sm focus:outline-primary"
                             placeholder={
-                                isWorking() ? "Agent is processing..." : "Type your request..."
+                                isWorking()
+                                    ? "Agent is processing... send a follow-up or cancel"
+                                    : "Type your request..."
                             }
                             value={inputText()}
-                            disabled={isWorking()}
                             rows={1}
                             style={{ height: "auto" }}
                             ref={(el) => {
@@ -250,26 +251,7 @@ export default function InputArea() {
 
                     {/* Action Buttons */}
                     <div class="flex items-center gap-1.5 h-[44px]">
-                        <Show
-                            when={isWorking()}
-                            fallback={
-                                <button
-                                    class="btn btn-primary rounded-xl px-4 h-full min-h-0 flex items-center gap-1.5"
-                                    onClick={handleSend}
-                                    disabled={!inputText().trim()}
-                                >
-                                    <span class="hidden sm:inline">Send</span>
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        class="h-4 w-4"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                    >
-                                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                                    </svg>
-                                </button>
-                            }
-                        >
+                        <Show when={isWorking()}>
                             <button
                                 class={`btn btn-error btn-outline rounded-xl px-4 h-full min-h-0 flex items-center gap-1.5 ${isCancelling() ? "opacity-60 cursor-not-allowed" : "animate-pulse"}`}
                                 disabled={isCancelling()}
@@ -307,6 +289,21 @@ export default function InputArea() {
                                 </Show>
                             </button>
                         </Show>
+                        <button
+                            class="btn btn-primary rounded-xl px-4 h-full min-h-0 flex items-center gap-1.5"
+                            onClick={handleSend}
+                            disabled={!inputText().trim()}
+                        >
+                            <span class="hidden sm:inline">Send</span>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-4 w-4"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                            >
+                                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
             </div>

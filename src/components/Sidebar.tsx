@@ -1,6 +1,7 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
 import { useAb } from "../store";
 import type { TopicData, TopicSettings } from "../types";
+import { agentDisplayName } from "../utils";
 
 export default function Sidebar() {
     const {
@@ -16,13 +17,8 @@ export default function Sidebar() {
         saveApp,
     } = useAb();
 
-    const agentDisplayName = (agentArguments: string[]) => {
-        const key = agentArguments.join(" ");
-        return (
-            state.agents.find((a) => a.command.join(" ") === key)?.name ??
-            (agentArguments.join(" ") || "no arguments")
-        );
-    };
+    const topicAgentDisplayName = (agentArguments: string[]) =>
+        agentDisplayName(agentArguments, state.agents);
 
     const [isSaved, setIsSaved] = createSignal(false);
 
@@ -424,7 +420,7 @@ export default function Sidebar() {
                                             <span
                                                 class={`truncate max-w-[150px] ${topic.status === "working" ? "opacity-50" : ""}`}
                                             >
-                                                {agentDisplayName(topic.agentArguments)}
+                                                {topicAgentDisplayName(topic.agentArguments)}
                                             </span>
                                         }
                                     >
@@ -437,7 +433,7 @@ export default function Sidebar() {
                                             }}
                                         >
                                             <span class="truncate">
-                                                {agentDisplayName(topic.agentArguments)}
+                                                {topicAgentDisplayName(topic.agentArguments)}
                                             </span>
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
