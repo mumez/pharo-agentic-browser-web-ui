@@ -10,6 +10,7 @@ export interface TopicData {
     currentModel: string;
     currentMode: string;
     lastUpdated: string;
+    workingDirectoryPath: string;
 }
 
 export type MessageSender = "human" | "ai" | "system";
