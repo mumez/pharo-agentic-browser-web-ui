@@ -466,4 +466,24 @@ describe("AbClient", () => {
         expect(onMessageAdded).toHaveBeenCalledWith("t1", messageMock);
         expect(onStatusChanged).toHaveBeenCalledWith("t1", "working");
     });
+
+    it("should handle push events for goalChanged", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        const onGoalChanged = vi.fn();
+        client.onEvent("goalChanged", onGoalChanged);
+
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "goalChanged",
+                topicId: "t1",
+                goal: "Implement the login feature",
+            },
+        });
+
+        expect(onGoalChanged).toHaveBeenCalledWith("t1", "Implement the login feature");
+    });
 });

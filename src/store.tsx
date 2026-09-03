@@ -255,6 +255,10 @@ export function AbProvider(props: { children: JSX.Element }) {
             }
         });
 
+        client.onEvent("goalChanged", (topicId: string, goal: string) => {
+            setState("topics", (t) => t.topicId === topicId, "goal", goal);
+        });
+
         client.onEvent("messageAdded", (topicId: string, message: MessageData) => {
             // Coalesce rapid push events so the main thread stays responsive (e.g. sidebar clicks).
             pendingMessageAdds.push({ topicId, message });
