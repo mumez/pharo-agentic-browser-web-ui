@@ -15,7 +15,7 @@
     },
     "dependencies": {
         "ripple-st-client": "^0.2.3",
-        "solid-js": "^1.9.12"
+        "solid-js": "^1.9.15"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.3.0",
