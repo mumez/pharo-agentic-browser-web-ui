@@ -14,6 +14,7 @@ interface EventHandlerMap {
     messages: (messages: MessageData[], done: boolean) => void;
     messageAdded: (topicId: string, message: MessageData) => void;
     statusChanged: (topicId: string, status: TopicStatus) => void;
+    goalChanged: (topicId: string, goal: string) => void;
     modelChanged: (topicId: string, options: ConfigOptionData | null) => void;
     modeChanged: (topicId: string, options: ConfigOptionData | null) => void;
     commandsChanged: (topicId: string, commands: CommandData[]) => void;
@@ -31,6 +32,7 @@ interface PushEventBody {
     messages?: MessageData[];
     done?: boolean;
     status?: TopicStatus;
+    goal?: string;
     options?: ConfigOptionData | null;
     commands?: CommandData[];
     topic?: TopicData;
@@ -105,6 +107,10 @@ export class AbClient {
             const handlers = (this.eventHandlers.get("statusChanged") ??
                 []) as EventHandlerMap["statusChanged"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.status!));
+        } else if (eventName === "goalChanged") {
+            const handlers = (this.eventHandlers.get("goalChanged") ??
+                []) as EventHandlerMap["goalChanged"][];
+            handlers.forEach((fn) => fn(pb.topicId!, pb.goal ?? ""));
         } else if (eventName === "modelChanged") {
             const handlers = (this.eventHandlers.get("modelChanged") ??
                 []) as EventHandlerMap["modelChanged"][];
