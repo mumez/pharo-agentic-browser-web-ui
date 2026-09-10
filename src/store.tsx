@@ -24,6 +24,7 @@ import type {
     CommandData,
     TopicStatus,
     TopicSettings,
+    WorkingDirectoryInfo,
 } from "./types";
 
 interface AbState {
@@ -44,7 +45,13 @@ interface AbContextValue {
     selectedTopic: () => TopicData | null;
     connect: (host?: string, port?: number) => void;
     loadTopics: () => Promise<void>;
-    createTopic: (title?: string, agentArguments?: string[]) => Promise<string>;
+    createTopic: (
+        title?: string,
+        agentArguments?: string[],
+        workingDirectory?: string,
+        checkExistingDirectory?: boolean
+    ) => Promise<string>;
+    listWorkingDirectories: () => Promise<WorkingDirectoryInfo[]>;
     renameTopic: (topicId: string, title: string) => Promise<void>;
     deleteTopic: (topicId: string) => Promise<void>;
     copyTopic: (topicId: string) => Promise<void>;
@@ -319,17 +326,29 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const createTopic = async (
         title = "Untitled",
-        agentArguments: string[] = []
+        agentArguments: string[] = [],
+        workingDirectory?: string,
+        checkExistingDirectory?: boolean
     ): Promise<string> => {
         if (!client) throw new Error("Not connected");
         try {
-            const topicId = await client.createTopic(title, agentArguments);
+            const topicId = await client.createTopic(
+                title,
+                agentArguments,
+                workingDirectory,
+                checkExistingDirectory
+            );
             await loadTopics();
             return topicId;
         } catch (err: unknown) {
             setState("error", errMsg(err, "Failed to create topic"));
             throw err;
         }
+    };
+
+    const listWorkingDirectories = async (): Promise<WorkingDirectoryInfo[]> => {
+        if (!client) throw new Error("Not connected");
+        return client.listWorkingDirectories();
     };
 
     const renameTopic = async (topicId: string, title: string) => {
@@ -520,6 +539,7 @@ export function AbProvider(props: { children: JSX.Element }) {
                 connect,
                 loadTopics,
                 createTopic,
+                listWorkingDirectories,
                 renameTopic,
                 deleteTopic,
                 copyTopic,

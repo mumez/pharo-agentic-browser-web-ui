@@ -72,6 +72,16 @@ export interface TopicCreateResponse {
     topicId: string;
 }
 
+export interface WorkingDirectoryInfo {
+    name: string;
+    createdAt: string;
+    modifiedAt: string;
+}
+
+export interface WorkingDirectoriesListResponse {
+    workingDirectories: WorkingDirectoryInfo[];
+}
+
 export interface AgentPreset {
     name: string;
     command: string[];

@@ -1,12 +1,16 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
 import { useAb } from "../store";
-import type { TopicData, TopicSettings } from "../types";
+import type { TopicData, TopicSettings, WorkingDirectoryInfo } from "../types";
 import { agentDisplayName } from "../utils";
+
+const NEW_FOLDER_OPTION = "__new__";
+const AUTO_FOLDER_OPTION = "__auto__";
 
 export default function Sidebar() {
     const {
         state,
         createTopic,
+        listWorkingDirectories,
         deleteTopic,
         copyTopic,
         renameTopic,
@@ -32,6 +36,24 @@ export default function Sidebar() {
     const [newTitle, setNewTitle] = createSignal("");
     const [selectedAgentIndex, setSelectedAgentIndex] = createSignal(0);
     const [manualAgentArgs, setManualAgentArgs] = createSignal("claude-code");
+    const [workingDirectories, setWorkingDirectories] = createSignal<WorkingDirectoryInfo[]>([]);
+    const [folderSelection, setFolderSelection] = createSignal(AUTO_FOLDER_OPTION);
+    const [newFolderName, setNewFolderName] = createSignal("");
+    const [loadingFolders, setLoadingFolders] = createSignal(false);
+
+    const openCreateModal = async () => {
+        setIsCreateOpen(true);
+        setFolderSelection(AUTO_FOLDER_OPTION);
+        setNewFolderName("");
+        setLoadingFolders(true);
+        try {
+            setWorkingDirectories(await listWorkingDirectories());
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingFolders(false);
+        }
+    };
 
     const hasAgents = createMemo(() => state.agents.length > 0);
 
@@ -145,12 +167,29 @@ export default function Sidebar() {
                 .filter(Boolean);
         }
 
+        const selection = folderSelection();
+        const workingDirectory =
+            selection === AUTO_FOLDER_OPTION
+                ? undefined
+                : selection === NEW_FOLDER_OPTION
+                  ? newFolderName().trim()
+                  : selection;
+        const checkExistingDirectory = selection === NEW_FOLDER_OPTION;
+        if (selection === NEW_FOLDER_OPTION && !workingDirectory) return;
+
         try {
-            const topicId = await createTopic(newTitle().trim(), args);
+            const topicId = await createTopic(
+                newTitle().trim(),
+                args,
+                workingDirectory,
+                checkExistingDirectory
+            );
             setIsCreateOpen(false);
             setNewTitle("");
             setSelectedAgentIndex(0);
             setManualAgentArgs("claude-code");
+            setFolderSelection(AUTO_FOLDER_OPTION);
+            setNewFolderName("");
             // Auto-select the newly created topic
             selectTopic(topicId);
         } catch (err) {
@@ -261,7 +300,7 @@ export default function Sidebar() {
                 </div>
                 <button
                     class="btn btn-sm btn-circle btn-primary"
-                    onClick={() => setIsCreateOpen(true)}
+                    onClick={openCreateModal}
                     title="Create Topic"
                 >
                     <svg
@@ -836,6 +875,31 @@ export default function Sidebar() {
                                             )}
                                         </For>
                                     </select>
+                                </Show>
+                            </div>
+                            <div class="form-control">
+                                <label class="label-text mb-1 opacity-70">Topic Folder</label>
+                                <select
+                                    class="select select-bordered w-full"
+                                    value={folderSelection()}
+                                    onChange={(e) => setFolderSelection(e.currentTarget.value)}
+                                    disabled={loadingFolders()}
+                                >
+                                    <option value={AUTO_FOLDER_OPTION}>Auto (default)</option>
+                                    <For each={workingDirectories()}>
+                                        {(dir) => <option value={dir.name}>{dir.name}</option>}
+                                    </For>
+                                    <option value={NEW_FOLDER_OPTION}>+ New folder...</option>
+                                </select>
+                                <Show when={folderSelection() === NEW_FOLDER_OPTION}>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g., my-topic-folder"
+                                        class="input input-bordered w-full mt-2"
+                                        value={newFolderName()}
+                                        onInput={(e) => setNewFolderName(e.currentTarget.value)}
+                                        required
+                                    />
                                 </Show>
                             </div>
                         </div>
