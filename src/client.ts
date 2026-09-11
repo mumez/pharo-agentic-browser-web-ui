@@ -9,6 +9,7 @@ import type {
     CommandData,
     TopicStatus,
     WorkingDirectoryInfo,
+    WorkingDirectoriesListResponse,
 } from "./types";
 
 interface EventHandlerMap {
@@ -177,10 +178,10 @@ export class AbClient {
     createTopic(
         title: string = "Untitled",
         agentArguments: string[] = [],
-        workingDirectory?: string,
-        checkExistingDirectory?: boolean
+        options: { workingDirectory?: string; checkExistingDirectory?: boolean } = {}
     ): Promise<string> {
         return new Promise((resolve, reject) => {
+            const { workingDirectory, checkExistingDirectory } = options;
             const payload: Record<string, unknown> = { title, agentArguments };
             if (workingDirectory !== undefined) payload.workingDirectory = workingDirectory;
             if (checkExistingDirectory !== undefined)
@@ -203,9 +204,7 @@ export class AbClient {
                 {},
                 (body: unknown, err: RippleError | null) => {
                     if (err) return reject(err);
-                    resolve(
-                        (body as { workingDirectories: WorkingDirectoryInfo[] }).workingDirectories
-                    );
+                    resolve((body as WorkingDirectoriesListResponse).workingDirectories);
                 }
             );
         });

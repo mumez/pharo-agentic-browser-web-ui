@@ -147,16 +147,17 @@ export default function Sidebar() {
                   ? newWorkingDirectoryName().trim()
                   : selection;
         const checkExistingDirectory = selection === NEW_WORKING_DIRECTORY_OPTION;
-        if (selection === NEW_WORKING_DIRECTORY_OPTION && !workingDirectory) return;
+        if (selection === NEW_WORKING_DIRECTORY_OPTION && !workingDirectory) {
+            setCreateTopicError("Working directory name cannot be empty");
+            return;
+        }
 
         setCreateTopicError(null);
         try {
-            const topicId = await createTopic(
-                newTitle().trim(),
-                args,
+            const topicId = await createTopic(newTitle().trim(), args, {
                 workingDirectory,
-                checkExistingDirectory
-            );
+                checkExistingDirectory,
+            });
             setIsCreateOpen(false);
             setNewTitle("");
             setSelectedAgentIndex(0);

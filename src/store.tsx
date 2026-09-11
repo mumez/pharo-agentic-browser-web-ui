@@ -48,8 +48,7 @@ interface AbContextValue {
     createTopic: (
         title?: string,
         agentArguments?: string[],
-        workingDirectory?: string,
-        checkExistingDirectory?: boolean
+        options?: { workingDirectory?: string; checkExistingDirectory?: boolean }
     ) => Promise<string>;
     listWorkingDirectories: () => Promise<WorkingDirectoryInfo[]>;
     renameTopic: (topicId: string, title: string) => Promise<void>;
@@ -337,23 +336,12 @@ export function AbProvider(props: { children: JSX.Element }) {
     const createTopic = async (
         title = "Untitled",
         agentArguments: string[] = [],
-        workingDirectory?: string,
-        checkExistingDirectory?: boolean
+        options: { workingDirectory?: string; checkExistingDirectory?: boolean } = {}
     ): Promise<string> => {
         if (!client) throw new Error("Not connected");
-        try {
-            const topicId = await client.createTopic(
-                title,
-                agentArguments,
-                workingDirectory,
-                checkExistingDirectory
-            );
-            await loadTopics();
-            return topicId;
-        } catch (err: unknown) {
-            setState("error", errMsg(err, "Failed to create topic"));
-            throw err;
-        }
+        const topicId = await client.createTopic(title, agentArguments, options);
+        await loadTopics();
+        return topicId;
     };
 
     const listWorkingDirectories = async (): Promise<WorkingDirectoryInfo[]> => {
