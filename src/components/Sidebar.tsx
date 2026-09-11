@@ -1,12 +1,16 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
-import { useAb } from "../store";
-import type { TopicData, TopicSettings } from "../types";
-import { agentDisplayName } from "../utils";
+import { useAb, errMsg } from "../store";
+import type { TopicData, TopicSettings, WorkingDirectoryInfo } from "../types";
+import TopicListItem from "./TopicListItem";
+
+const NEW_WORKING_DIRECTORY_OPTION = "__new__";
+const AUTO_WORKING_DIRECTORY_OPTION = "__auto__";
 
 export default function Sidebar() {
     const {
         state,
         createTopic,
+        listWorkingDirectories,
         deleteTopic,
         copyTopic,
         renameTopic,
@@ -16,9 +20,6 @@ export default function Sidebar() {
         setTopicSettings,
         saveApp,
     } = useAb();
-
-    const topicAgentDisplayName = (agentArguments: string[]) =>
-        agentDisplayName(agentArguments, state.agents);
 
     const [isSaved, setIsSaved] = createSignal(false);
 
@@ -32,38 +33,37 @@ export default function Sidebar() {
     const [newTitle, setNewTitle] = createSignal("");
     const [selectedAgentIndex, setSelectedAgentIndex] = createSignal(0);
     const [manualAgentArgs, setManualAgentArgs] = createSignal("claude-code");
+    const [workingDirectories, setWorkingDirectories] = createSignal<WorkingDirectoryInfo[]>([]);
+    const [workingDirectorySelection, setWorkingDirectorySelection] = createSignal(AUTO_WORKING_DIRECTORY_OPTION);
+    const [newWorkingDirectoryName, setNewWorkingDirectoryName] = createSignal("");
+    const [loadingWorkingDirectories, setLoadingWorkingDirectories] = createSignal(false);
+    const [createTopicError, setCreateTopicError] = createSignal<string | null>(null);
+
+    const openCreateModal = async () => {
+        setIsCreateOpen(true);
+        setWorkingDirectorySelection(AUTO_WORKING_DIRECTORY_OPTION);
+        setNewWorkingDirectoryName("");
+        setCreateTopicError(null);
+        setLoadingWorkingDirectories(true);
+        try {
+            setWorkingDirectories(await listWorkingDirectories());
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingWorkingDirectories(false);
+        }
+    };
 
     const hasAgents = createMemo(() => state.agents.length > 0);
 
     const [agentModalTopic, setAgentModalTopic] = createSignal<TopicData | null>(null);
-
-    const [longPressTopicId, setLongPressTopicId] = createSignal<string | null>(null);
-    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-    let suppressNextClick = false;
-
-    const startLongPress = (topicId: string) => {
-        if (longPressTimer) clearTimeout(longPressTimer);
-        longPressTimer = setTimeout(() => {
-            setLongPressTopicId(topicId);
-            suppressNextClick = true;
-            longPressTimer = null;
-        }, 500);
-    };
-
-    const cancelLongPress = () => {
-        if (longPressTimer) {
-            clearTimeout(longPressTimer);
-            longPressTimer = null;
-        }
-    };
 
     const [settingsModalTopic, setSettingsModalTopic] = createSignal<TopicData | null>(null);
     const [topicSettings, setTopicSettingsLocal] = createSignal<TopicSettings | null>(null);
     const [settingsLoading, setSettingsLoading] = createSignal(false);
     const [settingsError, setSettingsError] = createSignal<string | null>(null);
 
-    const openSettingsModal = async (topic: TopicData, e: Event) => {
-        e.stopPropagation();
+    const openSettingsModal = async (topic: TopicData) => {
         setSettingsModalTopic(topic);
         setTopicSettingsLocal(null);
         setSettingsError(null);
@@ -92,10 +92,7 @@ export default function Sidebar() {
 
     const [deletingTopicIds, setDeletingTopicIds] = createSignal<Set<string>>(new Set());
 
-    const handleDelete = async (topicId: string, e: Event) => {
-        e.stopPropagation();
-        if (!confirm("Delete this topic?")) return;
-
+    const handleDelete = async (topicId: string) => {
         setDeletingTopicIds((prev) => new Set([...prev, topicId]));
         const timeoutId = setTimeout(() => {
             setDeletingTopicIds((prev) => {
@@ -116,9 +113,6 @@ export default function Sidebar() {
             });
         }
     };
-
-    const [editingTopicId, setEditingTopicId] = createSignal<string | null>(null);
-    const [editingTitle, setEditingTitle] = createSignal("");
 
     type SortOrder = "lastUpdated" | "title";
     const [sortOrder, setSortOrder] = createSignal<SortOrder>("lastUpdated");
@@ -145,58 +139,36 @@ export default function Sidebar() {
                 .filter(Boolean);
         }
 
+        const selection = workingDirectorySelection();
+        const workingDirectory =
+            selection === AUTO_WORKING_DIRECTORY_OPTION
+                ? undefined
+                : selection === NEW_WORKING_DIRECTORY_OPTION
+                  ? newWorkingDirectoryName().trim()
+                  : selection;
+        const checkExistingDirectory = selection === NEW_WORKING_DIRECTORY_OPTION;
+        if (selection === NEW_WORKING_DIRECTORY_OPTION && !workingDirectory) {
+            setCreateTopicError("Working directory name cannot be empty");
+            return;
+        }
+
+        setCreateTopicError(null);
         try {
-            const topicId = await createTopic(newTitle().trim(), args);
+            const topicId = await createTopic(newTitle().trim(), args, {
+                workingDirectory,
+                checkExistingDirectory,
+            });
             setIsCreateOpen(false);
             setNewTitle("");
             setSelectedAgentIndex(0);
             setManualAgentArgs("claude-code");
+            setWorkingDirectorySelection(AUTO_WORKING_DIRECTORY_OPTION);
+            setNewWorkingDirectoryName("");
             // Auto-select the newly created topic
             selectTopic(topicId);
         } catch (err) {
             console.error(err);
-        }
-    };
-
-    const startRename = (topic: TopicData, e: Event) => {
-        e.stopPropagation(); // Prevent select
-        setEditingTopicId(topic.topicId);
-        setEditingTitle(topic.title);
-    };
-
-    const saveRename = async (topicId: string) => {
-        if (!editingTitle().trim()) return;
-        await renameTopic(topicId, editingTitle().trim());
-        setEditingTopicId(null);
-    };
-
-    const getStatusBadgeClass = (status: string) => {
-        switch (status) {
-            case "working":
-                return "badge-primary animate-pulse font-semibold";
-            case "waitingForHuman":
-                return "badge-warning text-warning-content font-semibold";
-            case "endTurn":
-                return "badge-info font-semibold";
-            case "goalAchieved":
-                return "badge-success text-success-content font-semibold";
-            default:
-                return "badge-ghost opacity-70";
-        }
-    };
-
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case "working":
-                return "Working";
-            case "waitingForHuman":
-                return "Waiting";
-            case "endTurn":
-                return "Done";
-            case "goalAchieved":
-                return "Success";
-            default:
-                return "Initial";
+            setCreateTopicError(errMsg(err, "Failed to create topic"));
         }
     };
 
@@ -261,7 +233,7 @@ export default function Sidebar() {
                 </div>
                 <button
                     class="btn btn-sm btn-circle btn-primary"
-                    onClick={() => setIsCreateOpen(true)}
+                    onClick={openCreateModal}
                     title="Create Topic"
                 >
                     <svg
@@ -353,236 +325,18 @@ export default function Sidebar() {
                 >
                     <For each={sortedTopics()}>
                         {(topic) => (
-                            <div
-                                onClick={() => {
-                                    if (suppressNextClick) {
-                                        suppressNextClick = false;
-                                        return;
-                                    }
-                                    if (longPressTopicId() !== null) {
-                                        setLongPressTopicId(null);
-                                    }
-                                    if (editingTopicId() !== topic.topicId) {
-                                        selectTopic(topic.topicId);
-                                    }
-                                }}
-                                onPointerDown={(e) => {
-                                    if (e.pointerType === "mouse") return;
-                                    startLongPress(topic.topicId);
-                                }}
-                                onPointerUp={cancelLongPress}
-                                onPointerLeave={cancelLongPress}
-                                onPointerCancel={cancelLongPress}
-                                onContextMenu={(e) => e.preventDefault()}
-                                class={`group flex flex-col p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                                    deletingTopicIds().has(topic.topicId)
-                                        ? "opacity-40 pointer-events-none"
-                                        : state.selectedTopicId === topic.topicId
-                                          ? "bg-primary text-primary-content shadow-lg shadow-primary/20 translate-x-1"
-                                          : "hover:bg-base-300 text-base-content/90"
-                                }`}
-                            >
-                                {/* Topic Line 1: Title & Status */}
-                                <div class="flex items-center justify-between w-full min-w-0">
-                                    <Show
-                                        when={editingTopicId() === topic.topicId}
-                                        fallback={
-                                            <span class="font-medium truncate flex-1 pr-2 text-sm md:text-base">
-                                                {topic.title}
-                                            </span>
-                                        }
-                                    >
-                                        <input
-                                            type="text"
-                                            class="input input-xs input-bordered text-base-content flex-1 mr-2"
-                                            value={editingTitle()}
-                                            onInput={(e) => setEditingTitle(e.currentTarget.value)}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "Enter") saveRename(topic.topicId);
-                                                if (e.key === "Escape") setEditingTopicId(null);
-                                            }}
-                                            autofocus
-                                        />
-                                    </Show>
-                                    <span
-                                        class={`badge badge-sm ${getStatusBadgeClass(topic.status)}`}
-                                    >
-                                        {getStatusText(topic.status)}
-                                    </span>
-                                </div>
-
-                                {/* Topic Line 2: Details & Actions */}
-                                <div class="flex items-center justify-between mt-2 pt-1 border-t border-current/10 text-xs opacity-75">
-                                    <Show
-                                        when={state.agents.length > 0 && topic.status !== "working"}
-                                        fallback={
-                                            <span
-                                                class={`truncate max-w-[150px] ${topic.status === "working" ? "opacity-50" : ""}`}
-                                            >
-                                                {topicAgentDisplayName(topic.agentArguments)}
-                                            </span>
-                                        }
-                                    >
-                                        <button
-                                            class="flex items-center gap-1 max-w-[150px] hover:underline underline-offset-2 cursor-pointer transition-opacity"
-                                            title="Switch agent"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setAgentModalTopic(topic);
-                                            }}
-                                        >
-                                            <span class="truncate">
-                                                {topicAgentDisplayName(topic.agentArguments)}
-                                            </span>
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="h-3 w-3 shrink-0"
-                                                viewBox="0 0 20 20"
-                                                fill="currentColor"
-                                            >
-                                                <path
-                                                    fill-rule="evenodd"
-                                                    d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                    clip-rule="evenodd"
-                                                />
-                                            </svg>
-                                        </button>
-                                    </Show>
-
-                                    {/* Action Buttons */}
-                                    <div
-                                        class={`flex items-center gap-1 transition-opacity duration-150 ${longPressTopicId() === topic.topicId ? "opacity-100" : "opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto"}`}
-                                    >
-                                        <Show
-                                            when={editingTopicId() === topic.topicId}
-                                            fallback={
-                                                <>
-                                                    <button
-                                                        class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
-                                                        onClick={(e) => openSettingsModal(topic, e)}
-                                                        title="Settings"
-                                                    >
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-3.5 w-3.5"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                                                            />
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                    <button
-                                                        class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
-                                                        onClick={(e) => startRename(topic, e)}
-                                                        title="Set title"
-                                                    >
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-3.5 w-3.5"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                    <button
-                                                        class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            copyTopic(topic.topicId);
-                                                        }}
-                                                        title="Copy"
-                                                    >
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-3.5 w-3.5"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                    <button
-                                                        class={`btn btn-ghost btn-xs btn-circle hover:bg-error hover:text-error-content ${
-                                                            topic.status === "working" ||
-                                                            deletingTopicIds().has(topic.topicId)
-                                                                ? "btn-disabled opacity-30"
-                                                                : ""
-                                                        }`}
-                                                        disabled={
-                                                            topic.status === "working" ||
-                                                            deletingTopicIds().has(topic.topicId)
-                                                        }
-                                                        onClick={(e) =>
-                                                            handleDelete(topic.topicId, e)
-                                                        }
-                                                        title="Delete"
-                                                    >
-                                                        <svg
-                                                            xmlns="http://www.w3.org/2000/svg"
-                                                            class="h-3.5 w-3.5"
-                                                            fill="none"
-                                                            viewBox="0 0 24 24"
-                                                            stroke="currentColor"
-                                                        >
-                                                            <path
-                                                                stroke-linecap="round"
-                                                                stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                                            />
-                                                        </svg>
-                                                    </button>
-                                                </>
-                                            }
-                                        >
-                                            <button
-                                                class="btn btn-ghost btn-xs btn-circle hover:bg-success hover:text-success-content"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    saveRename(topic.topicId);
-                                                }}
-                                            >
-                                                ✓
-                                            </button>
-                                            <button
-                                                class="btn btn-ghost btn-xs btn-circle hover:bg-error hover:text-error-content"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setEditingTopicId(null);
-                                                }}
-                                            >
-                                                ✕
-                                            </button>
-                                        </Show>
-                                    </div>
-                                </div>
-                            </div>
+                            <TopicListItem
+                                topic={topic}
+                                agents={state.agents}
+                                isSelected={state.selectedTopicId === topic.topicId}
+                                isDeleting={deletingTopicIds().has(topic.topicId)}
+                                onSelect={() => selectTopic(topic.topicId)}
+                                onOpenSettings={() => openSettingsModal(topic)}
+                                onSwitchAgent={() => setAgentModalTopic(topic)}
+                                onDelete={() => handleDelete(topic.topicId)}
+                                onCopy={() => copyTopic(topic.topicId)}
+                                onRename={(title) => renameTopic(topic.topicId, title)}
+                            />
                         )}
                     </For>
                 </Show>
@@ -794,6 +548,11 @@ export default function Sidebar() {
                         class="modal-box max-w-sm rounded-2xl bg-base-100 shadow-2xl"
                     >
                         <h3 class="font-bold text-lg mb-4">Create New Topic</h3>
+                        <Show when={createTopicError()}>
+                            <div class="alert alert-error text-xs mb-4 py-2">
+                                <span>{createTopicError()}</span>
+                            </div>
+                        </Show>
                         <div class="space-y-4">
                             <div class="form-control">
                                 <label class="label-text mb-1 opacity-70">Topic Title</label>
@@ -838,12 +597,40 @@ export default function Sidebar() {
                                     </select>
                                 </Show>
                             </div>
+                            <div class="form-control">
+                                <label class="label-text mb-1 opacity-70">Working Directory</label>
+                                <select
+                                    class="select select-bordered w-full"
+                                    value={workingDirectorySelection()}
+                                    onChange={(e) => setWorkingDirectorySelection(e.currentTarget.value)}
+                                    disabled={loadingWorkingDirectories()}
+                                >
+                                    <option value={AUTO_WORKING_DIRECTORY_OPTION}>Auto (default)</option>
+                                    <For each={workingDirectories()}>
+                                        {(dir) => <option value={dir.name}>{dir.name}</option>}
+                                    </For>
+                                    <option value={NEW_WORKING_DIRECTORY_OPTION}>+ New working directory...</option>
+                                </select>
+                                <Show when={workingDirectorySelection() === NEW_WORKING_DIRECTORY_OPTION}>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g., my-working-directory"
+                                        class="input input-bordered w-full mt-2"
+                                        value={newWorkingDirectoryName()}
+                                        onInput={(e) => setNewWorkingDirectoryName(e.currentTarget.value)}
+                                        required
+                                    />
+                                </Show>
+                            </div>
                         </div>
                         <div class="modal-action">
                             <button
                                 type="button"
                                 class="btn btn-ghost"
-                                onClick={() => setIsCreateOpen(false)}
+                                onClick={() => {
+                                    setIsCreateOpen(false);
+                                    setCreateTopicError(null);
+                                }}
                             >
                                 Cancel
                             </button>

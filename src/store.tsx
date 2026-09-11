@@ -24,6 +24,7 @@ import type {
     CommandData,
     TopicStatus,
     TopicSettings,
+    WorkingDirectoryInfo,
 } from "./types";
 
 interface AbState {
@@ -44,7 +45,12 @@ interface AbContextValue {
     selectedTopic: () => TopicData | null;
     connect: (host?: string, port?: number) => void;
     loadTopics: () => Promise<void>;
-    createTopic: (title?: string, agentArguments?: string[]) => Promise<string>;
+    createTopic: (
+        title?: string,
+        agentArguments?: string[],
+        options?: { workingDirectory?: string; checkExistingDirectory?: boolean }
+    ) => Promise<string>;
+    listWorkingDirectories: () => Promise<WorkingDirectoryInfo[]>;
     renameTopic: (topicId: string, title: string) => Promise<void>;
     deleteTopic: (topicId: string) => Promise<void>;
     copyTopic: (topicId: string) => Promise<void>;
@@ -63,8 +69,18 @@ interface AbContextValue {
     clearError: () => void;
 }
 
-const errMsg = (err: unknown, fallback: string): string =>
-    err instanceof Error ? err.message : fallback;
+export const errMsg = (err: unknown, fallback: string): string => {
+    if (err instanceof Error) return err.message;
+    if (
+        err &&
+        typeof err === "object" &&
+        "message" in err &&
+        typeof (err as { message: unknown }).message === "string"
+    ) {
+        return (err as { message: string }).message;
+    }
+    return fallback;
+};
 
 const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalOption">) =>
     (message.type === "aiPermission" || message.type === "exportApproval") &&
@@ -319,17 +335,18 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const createTopic = async (
         title = "Untitled",
-        agentArguments: string[] = []
+        agentArguments: string[] = [],
+        options: { workingDirectory?: string; checkExistingDirectory?: boolean } = {}
     ): Promise<string> => {
         if (!client) throw new Error("Not connected");
-        try {
-            const topicId = await client.createTopic(title, agentArguments);
-            await loadTopics();
-            return topicId;
-        } catch (err: unknown) {
-            setState("error", errMsg(err, "Failed to create topic"));
-            throw err;
-        }
+        const topicId = await client.createTopic(title, agentArguments, options);
+        await loadTopics();
+        return topicId;
+    };
+
+    const listWorkingDirectories = async (): Promise<WorkingDirectoryInfo[]> => {
+        if (!client) throw new Error("Not connected");
+        return client.listWorkingDirectories();
     };
 
     const renameTopic = async (topicId: string, title: string) => {
@@ -520,6 +537,7 @@ export function AbProvider(props: { children: JSX.Element }) {
                 connect,
                 loadTopics,
                 createTopic,
+                listWorkingDirectories,
                 renameTopic,
                 deleteTopic,
                 copyTopic,

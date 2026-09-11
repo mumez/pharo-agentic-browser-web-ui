@@ -8,6 +8,8 @@ import type {
     ConfigOptionData,
     CommandData,
     TopicStatus,
+    WorkingDirectoryInfo,
+    WorkingDirectoriesListResponse,
 } from "./types";
 
 interface EventHandlerMap {
@@ -173,14 +175,36 @@ export class AbClient {
         });
     }
 
-    createTopic(title: string = "Untitled", agentArguments: string[] = []): Promise<string> {
+    createTopic(
+        title: string = "Untitled",
+        agentArguments: string[] = [],
+        options: { workingDirectory?: string; checkExistingDirectory?: boolean } = {}
+    ): Promise<string> {
         return new Promise((resolve, reject) => {
+            const { workingDirectory, checkExistingDirectory } = options;
+            const payload: Record<string, unknown> = { title, agentArguments };
+            if (workingDirectory !== undefined) payload.workingDirectory = workingDirectory;
+            if (checkExistingDirectory !== undefined)
+                payload.checkExistingDirectory = checkExistingDirectory;
             this.ripple.request(
                 "/topics/create",
-                { title, agentArguments },
+                payload,
                 (body: unknown, err: RippleError | null) => {
                     if (err) return reject(err);
                     resolve((body as { topicId: string }).topicId);
+                }
+            );
+        });
+    }
+
+    listWorkingDirectories(): Promise<WorkingDirectoryInfo[]> {
+        return new Promise((resolve, reject) => {
+            this.ripple.request(
+                "/workingDirectories/list",
+                {},
+                (body: unknown, err: RippleError | null) => {
+                    if (err) return reject(err);
+                    resolve((body as WorkingDirectoriesListResponse).workingDirectories);
                 }
             );
         });
