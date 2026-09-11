@@ -7,7 +7,7 @@ Client-side Web UI for [pharo-agentic-browser](https://github.com/mumez/pharo-ag
 - **Role**: Client-side module for the Web UI of `pharo-agentic-browser`
 - **Purpose**: Exposes the basic features of `pharo-agentic-browser` to a web browser
 - **Target Environment**: Single-user, local area network (LAN) usage. No authentication required.
-- **Out of Scope**: UI features designed for Pharo-local environment source editing (e.g., package export confirmation, setting target packages, working directory configuration, etc.)
+- **Out of Scope**: UI features designed for Pharo-local environment source editing (e.g., package export confirmation, setting target packages, etc.)
 - **Server Implementation**: Located at https://github.com/mumez/pharo-agentic-browser (Web-UI module)
 
 ## Screenshots
@@ -73,6 +73,16 @@ http://localhost:8080/assets/agentic-browser/
 ```
 
 > **Note for Smalltalk users**: The Pharo side (Teapot server + Ripple endpoint) is set up by loading [pharo-agentic-browser](https://github.com/mumez/pharo-agentic-browser). This repository contains only the client-side JavaScript assets that Teapot serves to the browser.
+
+## Working Directories
+
+When creating a new topic, you can optionally select the working directory the agent will run in:
+
+- **Auto (default)**: Let the server assign a working directory automatically.
+- **Existing**: Pick one of the working directories already known to the server.
+- **New**: Enter a name to create a new working directory.
+
+New working directories are always created as subdirectories under the server's `<agenticBrowserRoot>`; you cannot pick an arbitrary path on the server's filesystem. This is limited to selecting/creating a working directory at topic creation time; broader working directory management (renaming, deleting, browsing contents, etc.) remains out of scope for this Web UI.
 
 ## Specifications
 
