@@ -3,8 +3,8 @@ import { useAb } from "../store";
 import type { TopicData, TopicSettings, WorkingDirectoryInfo } from "../types";
 import { agentDisplayName } from "../utils";
 
-const NEW_FOLDER_OPTION = "__new__";
-const AUTO_FOLDER_OPTION = "__auto__";
+const NEW_WORKING_DIRECTORY_OPTION = "__new__";
+const AUTO_WORKING_DIRECTORY_OPTION = "__auto__";
 
 export default function Sidebar() {
     const {
@@ -37,21 +37,21 @@ export default function Sidebar() {
     const [selectedAgentIndex, setSelectedAgentIndex] = createSignal(0);
     const [manualAgentArgs, setManualAgentArgs] = createSignal("claude-code");
     const [workingDirectories, setWorkingDirectories] = createSignal<WorkingDirectoryInfo[]>([]);
-    const [folderSelection, setFolderSelection] = createSignal(AUTO_FOLDER_OPTION);
-    const [newFolderName, setNewFolderName] = createSignal("");
-    const [loadingFolders, setLoadingFolders] = createSignal(false);
+    const [workingDirectorySelection, setWorkingDirectorySelection] = createSignal(AUTO_WORKING_DIRECTORY_OPTION);
+    const [newWorkingDirectoryName, setNewWorkingDirectoryName] = createSignal("");
+    const [loadingWorkingDirectories, setLoadingWorkingDirectories] = createSignal(false);
 
     const openCreateModal = async () => {
         setIsCreateOpen(true);
-        setFolderSelection(AUTO_FOLDER_OPTION);
-        setNewFolderName("");
-        setLoadingFolders(true);
+        setWorkingDirectorySelection(AUTO_WORKING_DIRECTORY_OPTION);
+        setNewWorkingDirectoryName("");
+        setLoadingWorkingDirectories(true);
         try {
             setWorkingDirectories(await listWorkingDirectories());
         } catch (err) {
             console.error(err);
         } finally {
-            setLoadingFolders(false);
+            setLoadingWorkingDirectories(false);
         }
     };
 
@@ -167,15 +167,15 @@ export default function Sidebar() {
                 .filter(Boolean);
         }
 
-        const selection = folderSelection();
+        const selection = workingDirectorySelection();
         const workingDirectory =
-            selection === AUTO_FOLDER_OPTION
+            selection === AUTO_WORKING_DIRECTORY_OPTION
                 ? undefined
-                : selection === NEW_FOLDER_OPTION
-                  ? newFolderName().trim()
+                : selection === NEW_WORKING_DIRECTORY_OPTION
+                  ? newWorkingDirectoryName().trim()
                   : selection;
-        const checkExistingDirectory = selection === NEW_FOLDER_OPTION;
-        if (selection === NEW_FOLDER_OPTION && !workingDirectory) return;
+        const checkExistingDirectory = selection === NEW_WORKING_DIRECTORY_OPTION;
+        if (selection === NEW_WORKING_DIRECTORY_OPTION && !workingDirectory) return;
 
         try {
             const topicId = await createTopic(
@@ -188,8 +188,8 @@ export default function Sidebar() {
             setNewTitle("");
             setSelectedAgentIndex(0);
             setManualAgentArgs("claude-code");
-            setFolderSelection(AUTO_FOLDER_OPTION);
-            setNewFolderName("");
+            setWorkingDirectorySelection(AUTO_WORKING_DIRECTORY_OPTION);
+            setNewWorkingDirectoryName("");
             // Auto-select the newly created topic
             selectTopic(topicId);
         } catch (err) {
@@ -878,26 +878,26 @@ export default function Sidebar() {
                                 </Show>
                             </div>
                             <div class="form-control">
-                                <label class="label-text mb-1 opacity-70">Topic Folder</label>
+                                <label class="label-text mb-1 opacity-70">Working Directory</label>
                                 <select
                                     class="select select-bordered w-full"
-                                    value={folderSelection()}
-                                    onChange={(e) => setFolderSelection(e.currentTarget.value)}
-                                    disabled={loadingFolders()}
+                                    value={workingDirectorySelection()}
+                                    onChange={(e) => setWorkingDirectorySelection(e.currentTarget.value)}
+                                    disabled={loadingWorkingDirectories()}
                                 >
-                                    <option value={AUTO_FOLDER_OPTION}>Auto (default)</option>
+                                    <option value={AUTO_WORKING_DIRECTORY_OPTION}>Auto (default)</option>
                                     <For each={workingDirectories()}>
                                         {(dir) => <option value={dir.name}>{dir.name}</option>}
                                     </For>
-                                    <option value={NEW_FOLDER_OPTION}>+ New folder...</option>
+                                    <option value={NEW_WORKING_DIRECTORY_OPTION}>+ New working directory...</option>
                                 </select>
-                                <Show when={folderSelection() === NEW_FOLDER_OPTION}>
+                                <Show when={workingDirectorySelection() === NEW_WORKING_DIRECTORY_OPTION}>
                                     <input
                                         type="text"
-                                        placeholder="e.g., my-topic-folder"
+                                        placeholder="e.g., my-working-directory"
                                         class="input input-bordered w-full mt-2"
-                                        value={newFolderName()}
-                                        onInput={(e) => setNewFolderName(e.currentTarget.value)}
+                                        value={newWorkingDirectoryName()}
+                                        onInput={(e) => setNewWorkingDirectoryName(e.currentTarget.value)}
                                         required
                                     />
                                 </Show>
