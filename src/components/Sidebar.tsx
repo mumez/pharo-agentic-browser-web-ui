@@ -502,7 +502,7 @@ export default function Sidebar() {
                                             fallback={
                                                 <>
                                                     <button
-                                                        class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
+                                                        class="btn btn-ghost btn-xs btn-circle text-current hover:bg-current/10"
                                                         onClick={(e) => openSettingsModal(topic, e)}
                                                         title="Settings"
                                                     >
@@ -528,7 +528,7 @@ export default function Sidebar() {
                                                         </svg>
                                                     </button>
                                                     <button
-                                                        class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
+                                                        class="btn btn-ghost btn-xs btn-circle text-current hover:bg-current/10"
                                                         onClick={(e) => startRename(topic, e)}
                                                         title="Set title"
                                                     >
@@ -548,7 +548,7 @@ export default function Sidebar() {
                                                         </svg>
                                                     </button>
                                                     <button
-                                                        class="btn btn-ghost btn-xs btn-circle hover:bg-current/10"
+                                                        class="btn btn-ghost btn-xs btn-circle text-current hover:bg-current/10"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             copyTopic(topic.topicId);
@@ -571,7 +571,7 @@ export default function Sidebar() {
                                                         </svg>
                                                     </button>
                                                     <button
-                                                        class={`btn btn-ghost btn-xs btn-circle hover:bg-error hover:text-error-content ${
+                                                        class={`btn btn-ghost btn-xs btn-circle text-current hover:bg-error hover:text-error-content ${
                                                             topic.status === "working" ||
                                                             deletingTopicIds().has(topic.topicId)
                                                                 ? "btn-disabled opacity-30"
@@ -605,7 +605,7 @@ export default function Sidebar() {
                                             }
                                         >
                                             <button
-                                                class="btn btn-ghost btn-xs btn-circle hover:bg-success hover:text-success-content"
+                                                class="btn btn-ghost btn-xs btn-circle text-current hover:bg-success hover:text-success-content"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     saveRename(topic.topicId);
@@ -614,7 +614,7 @@ export default function Sidebar() {
                                                 ✓
                                             </button>
                                             <button
-                                                class="btn btn-ghost btn-xs btn-circle hover:bg-error hover:text-error-content"
+                                                class="btn btn-ghost btn-xs btn-circle text-current hover:bg-error hover:text-error-content"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setEditingTopicId(null);
