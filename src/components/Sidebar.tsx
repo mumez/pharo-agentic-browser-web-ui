@@ -1,5 +1,5 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
-import { useAb } from "../store";
+import { useAb, errMsg } from "../store";
 import type { TopicData, TopicSettings, WorkingDirectoryInfo } from "../types";
 import { agentDisplayName } from "../utils";
 
@@ -40,11 +40,13 @@ export default function Sidebar() {
     const [workingDirectorySelection, setWorkingDirectorySelection] = createSignal(AUTO_WORKING_DIRECTORY_OPTION);
     const [newWorkingDirectoryName, setNewWorkingDirectoryName] = createSignal("");
     const [loadingWorkingDirectories, setLoadingWorkingDirectories] = createSignal(false);
+    const [createTopicError, setCreateTopicError] = createSignal<string | null>(null);
 
     const openCreateModal = async () => {
         setIsCreateOpen(true);
         setWorkingDirectorySelection(AUTO_WORKING_DIRECTORY_OPTION);
         setNewWorkingDirectoryName("");
+        setCreateTopicError(null);
         setLoadingWorkingDirectories(true);
         try {
             setWorkingDirectories(await listWorkingDirectories());
@@ -177,6 +179,7 @@ export default function Sidebar() {
         const checkExistingDirectory = selection === NEW_WORKING_DIRECTORY_OPTION;
         if (selection === NEW_WORKING_DIRECTORY_OPTION && !workingDirectory) return;
 
+        setCreateTopicError(null);
         try {
             const topicId = await createTopic(
                 newTitle().trim(),
@@ -194,6 +197,7 @@ export default function Sidebar() {
             selectTopic(topicId);
         } catch (err) {
             console.error(err);
+            setCreateTopicError(errMsg(err, "Failed to create topic"));
         }
     };
 
@@ -833,6 +837,11 @@ export default function Sidebar() {
                         class="modal-box max-w-sm rounded-2xl bg-base-100 shadow-2xl"
                     >
                         <h3 class="font-bold text-lg mb-4">Create New Topic</h3>
+                        <Show when={createTopicError()}>
+                            <div class="alert alert-error text-xs mb-4 py-2">
+                                <span>{createTopicError()}</span>
+                            </div>
+                        </Show>
                         <div class="space-y-4">
                             <div class="form-control">
                                 <label class="label-text mb-1 opacity-70">Topic Title</label>
@@ -907,7 +916,10 @@ export default function Sidebar() {
                             <button
                                 type="button"
                                 class="btn btn-ghost"
-                                onClick={() => setIsCreateOpen(false)}
+                                onClick={() => {
+                                    setIsCreateOpen(false);
+                                    setCreateTopicError(null);
+                                }}
                             >
                                 Cancel
                             </button>

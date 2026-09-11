@@ -70,8 +70,18 @@ interface AbContextValue {
     clearError: () => void;
 }
 
-const errMsg = (err: unknown, fallback: string): string =>
-    err instanceof Error ? err.message : fallback;
+export const errMsg = (err: unknown, fallback: string): string => {
+    if (err instanceof Error) return err.message;
+    if (
+        err &&
+        typeof err === "object" &&
+        "message" in err &&
+        typeof (err as { message: unknown }).message === "string"
+    ) {
+        return (err as { message: string }).message;
+    }
+    return fallback;
+};
 
 const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalOption">) =>
     (message.type === "aiPermission" || message.type === "exportApproval") &&
