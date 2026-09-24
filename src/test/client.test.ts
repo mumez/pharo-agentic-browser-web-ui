@@ -365,13 +365,24 @@ describe("AbClient", () => {
             address: "/topic/getSettings",
             correlationId: request!.correlationId,
             body: {
-                settings: { useCommandOnGoalSet: true, goalSetCommand: "/goal" },
+                settings: {
+                    useCommandOnGoalSet: true,
+                    goalSetCommand: "/goal",
+                    useDefaultMcpServers: true,
+                    aiPermissionWaitTimeoutSeconds: 1800,
+                    aiPermissionTimeoutOption: "reject_once",
+                    useStBuddySkillOnInitialPrompt: false,
+                },
             },
         });
 
         const settings = await getSettingsPromise;
         expect(settings.useCommandOnGoalSet).toBe(true);
         expect(settings.goalSetCommand).toBe("/goal");
+        expect(settings.useDefaultMcpServers).toBe(true);
+        expect(settings.aiPermissionWaitTimeoutSeconds).toBe(1800);
+        expect(settings.aiPermissionTimeoutOption).toBe("reject_once");
+        expect(settings.useStBuddySkillOnInitialPrompt).toBe(false);
     });
 
     it("should handle getSettings error reply", async () => {
