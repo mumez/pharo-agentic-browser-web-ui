@@ -1,7 +1,8 @@
 import { createSignal, createMemo, For, Show } from "solid-js";
 import { useAb, errMsg } from "../store";
-import type { TopicData, TopicSettings, WorkingDirectoryInfo } from "../types";
+import type { TopicData, WorkingDirectoryInfo } from "../types";
 import TopicListItem from "./TopicListItem";
+import TopicSettingsModal from "./TopicSettingsModal";
 
 const NEW_WORKING_DIRECTORY_OPTION = "__new__";
 const AUTO_WORKING_DIRECTORY_OPTION = "__auto__";
@@ -16,8 +17,6 @@ export default function Sidebar() {
         renameTopic,
         selectTopic,
         setAgent,
-        getTopicSettings,
-        setTopicSettings,
         saveApp,
     } = useAb();
 
@@ -34,7 +33,9 @@ export default function Sidebar() {
     const [selectedAgentIndex, setSelectedAgentIndex] = createSignal(0);
     const [manualAgentArgs, setManualAgentArgs] = createSignal("claude-code");
     const [workingDirectories, setWorkingDirectories] = createSignal<WorkingDirectoryInfo[]>([]);
-    const [workingDirectorySelection, setWorkingDirectorySelection] = createSignal(AUTO_WORKING_DIRECTORY_OPTION);
+    const [workingDirectorySelection, setWorkingDirectorySelection] = createSignal(
+        AUTO_WORKING_DIRECTORY_OPTION
+    );
     const [newWorkingDirectoryName, setNewWorkingDirectoryName] = createSignal("");
     const [loadingWorkingDirectories, setLoadingWorkingDirectories] = createSignal(false);
     const [createTopicError, setCreateTopicError] = createSignal<string | null>(null);
@@ -59,37 +60,6 @@ export default function Sidebar() {
     const [agentModalTopic, setAgentModalTopic] = createSignal<TopicData | null>(null);
 
     const [settingsModalTopic, setSettingsModalTopic] = createSignal<TopicData | null>(null);
-    const [topicSettings, setTopicSettingsLocal] = createSignal<TopicSettings | null>(null);
-    const [settingsLoading, setSettingsLoading] = createSignal(false);
-    const [settingsError, setSettingsError] = createSignal<string | null>(null);
-
-    const openSettingsModal = async (topic: TopicData) => {
-        setSettingsModalTopic(topic);
-        setTopicSettingsLocal(null);
-        setSettingsError(null);
-        setSettingsLoading(true);
-        try {
-            const s = await getTopicSettings(topic.topicId);
-            setTopicSettingsLocal(s);
-        } catch (err: unknown) {
-            setSettingsError(err instanceof Error ? err.message : "Failed to load settings");
-        } finally {
-            setSettingsLoading(false);
-        }
-    };
-
-    const handleSaveSettings = async () => {
-        const topic = settingsModalTopic();
-        const s = topicSettings();
-        if (!topic || !s) return;
-        try {
-            await setTopicSettings(topic.topicId, s);
-            setSettingsModalTopic(null);
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
     const [deletingTopicIds, setDeletingTopicIds] = createSignal<Set<string>>(new Set());
 
     const handleDelete = async (topicId: string) => {
@@ -331,7 +301,7 @@ export default function Sidebar() {
                                 isSelected={state.selectedTopicId === topic.topicId}
                                 isDeleting={deletingTopicIds().has(topic.topicId)}
                                 onSelect={() => selectTopic(topic.topicId)}
-                                onOpenSettings={() => openSettingsModal(topic)}
+                                onOpenSettings={() => setSettingsModalTopic(topic)}
                                 onSwitchAgent={() => setAgentModalTopic(topic)}
                                 onDelete={() => handleDelete(topic.topicId)}
                                 onCopy={() => copyTopic(topic.topicId)}
@@ -364,109 +334,10 @@ export default function Sidebar() {
             </div>
 
             {/* Topic Settings Modal */}
-            <Show when={settingsModalTopic() !== null}>
-                <div class="modal modal-open" onClick={() => setSettingsModalTopic(null)}>
-                    <div
-                        class="modal-box max-w-sm rounded-2xl bg-base-100 shadow-2xl p-0 overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div class="p-5 border-b border-base-200">
-                            <h3 class="font-bold text-lg">Topic Settings</h3>
-                            <p class="text-xs opacity-60 mt-0.5 truncate">
-                                {settingsModalTopic()!.title}
-                            </p>
-                        </div>
-                        <Show
-                            when={!settingsLoading()}
-                            fallback={
-                                <div class="p-8 flex justify-center">
-                                    <span class="loading loading-spinner loading-md opacity-50" />
-                                </div>
-                            }
-                        >
-                            <Show when={settingsError() !== null}>
-                                <div class="mx-5 mt-4 alert alert-error text-sm py-2">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        class="h-4 w-4 shrink-0"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                                        />
-                                    </svg>
-                                    <span>{settingsError()}</span>
-                                </div>
-                            </Show>
-                            <div class="p-5 space-y-4">
-                                <div class="form-control">
-                                    <label class="label cursor-pointer justify-start gap-3">
-                                        <input
-                                            type="checkbox"
-                                            class="checkbox checkbox-primary checkbox-sm"
-                                            checked={topicSettings()?.useCommandOnGoalSet ?? false}
-                                            onChange={(e) =>
-                                                setTopicSettingsLocal((prev) =>
-                                                    prev
-                                                        ? {
-                                                              ...prev,
-                                                              useCommandOnGoalSet:
-                                                                  e.currentTarget.checked,
-                                                          }
-                                                        : prev
-                                                )
-                                            }
-                                        />
-                                        <span class="label-text text-sm">
-                                            Use command on goal set
-                                        </span>
-                                    </label>
-                                </div>
-                                <div class="form-control">
-                                    <label class="label-text text-sm opacity-70 mb-1">
-                                        Goal set command
-                                    </label>
-                                    <input
-                                        type="text"
-                                        class="input input-bordered input-sm w-full font-mono"
-                                        value={topicSettings()?.goalSetCommand ?? ""}
-                                        onInput={(e) =>
-                                            setTopicSettingsLocal((prev) =>
-                                                prev
-                                                    ? {
-                                                          ...prev,
-                                                          goalSetCommand: e.currentTarget.value,
-                                                      }
-                                                    : prev
-                                            )
-                                        }
-                                        disabled={!topicSettings()?.useCommandOnGoalSet}
-                                    />
-                                </div>
-                            </div>
-                        </Show>
-                        <div class="p-3 border-t border-base-200 flex gap-2 justify-end">
-                            <button
-                                class="btn btn-ghost btn-sm"
-                                onClick={() => setSettingsModalTopic(null)}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                class="btn btn-primary btn-sm"
-                                onClick={handleSaveSettings}
-                                disabled={settingsLoading() || topicSettings() === null}
-                            >
-                                Save
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <Show when={settingsModalTopic()} keyed>
+                {(topic) => (
+                    <TopicSettingsModal topic={topic} onClose={() => setSettingsModalTopic(null)} />
+                )}
             </Show>
 
             {/* Agent Select Modal */}
@@ -602,22 +473,34 @@ export default function Sidebar() {
                                 <select
                                     class="select select-bordered w-full"
                                     value={workingDirectorySelection()}
-                                    onChange={(e) => setWorkingDirectorySelection(e.currentTarget.value)}
+                                    onChange={(e) =>
+                                        setWorkingDirectorySelection(e.currentTarget.value)
+                                    }
                                     disabled={loadingWorkingDirectories()}
                                 >
-                                    <option value={AUTO_WORKING_DIRECTORY_OPTION}>Auto (default)</option>
+                                    <option value={AUTO_WORKING_DIRECTORY_OPTION}>
+                                        Auto (default)
+                                    </option>
                                     <For each={workingDirectories()}>
                                         {(dir) => <option value={dir.name}>{dir.name}</option>}
                                     </For>
-                                    <option value={NEW_WORKING_DIRECTORY_OPTION}>+ New working directory...</option>
+                                    <option value={NEW_WORKING_DIRECTORY_OPTION}>
+                                        + New working directory...
+                                    </option>
                                 </select>
-                                <Show when={workingDirectorySelection() === NEW_WORKING_DIRECTORY_OPTION}>
+                                <Show
+                                    when={
+                                        workingDirectorySelection() === NEW_WORKING_DIRECTORY_OPTION
+                                    }
+                                >
                                     <input
                                         type="text"
                                         placeholder="e.g., my-working-directory"
                                         class="input input-bordered w-full mt-2"
                                         value={newWorkingDirectoryName()}
-                                        onInput={(e) => setNewWorkingDirectoryName(e.currentTarget.value)}
+                                        onInput={(e) =>
+                                            setNewWorkingDirectoryName(e.currentTarget.value)
+                                        }
                                         required
                                     />
                                 </Show>

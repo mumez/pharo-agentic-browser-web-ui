@@ -54,7 +54,13 @@ export interface ConfigOptionData {
 export interface TopicSettings {
     useCommandOnGoalSet: boolean;
     goalSetCommand: string;
+    useDefaultMcpServers: boolean;
+    aiPermissionWaitTimeoutSeconds: number;
+    aiPermissionTimeoutOption: AiPermissionTimeoutOption;
+    useStBuddySkillOnInitialPrompt: boolean;
 }
+
+export type AiPermissionTimeoutOption = "allow_once" | "reject_once";
 
 export interface RippleError {
     type: "err";
