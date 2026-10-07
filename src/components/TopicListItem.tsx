@@ -361,7 +361,9 @@ export default function TopicListItem(props: TopicListItemProps) {
                         class="modal-box max-w-xs rounded-2xl bg-base-100 shadow-2xl p-2"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <p class="px-3 pt-2 pb-1 text-xs opacity-60 truncate">{props.topic.title}</p>
+                        <p class="px-3 pt-2 pb-1 text-xs opacity-60 truncate">
+                            {props.topic.title}
+                        </p>
                         <ul class="menu w-full">
                             <li>
                                 <button onClick={() => menuAction(props.onOpenSettings)}>
