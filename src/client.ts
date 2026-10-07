@@ -339,8 +339,19 @@ export class AbClient {
         this.ripple.send("/approval/resolve", { topicId, optionId });
     }
 
-    startCritReview(topicId: string, host: string) {
-        this.ripple.send("/crit/start", { topicId, host });
+    // Replies right after validation; the result arrives later as
+    // critReviewStarted / critReviewFailed.
+    startCritReview(topicId: string, host: string): Promise<boolean> {
+        return new Promise((resolve, reject) => {
+            this.ripple.request(
+                "/crit/start",
+                { topicId, host },
+                (body: unknown, err: RippleError | null) => {
+                    if (err) return reject(err);
+                    resolve((body as OkResponse).ok);
+                }
+            );
+        });
     }
 
     copyTopic(topicId: string): Promise<string> {

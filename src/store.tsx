@@ -180,6 +180,7 @@ export function AbProvider(props: { children: JSX.Element }) {
             }
             return tab;
         },
+        describeError: (err) => errMsg(err, "Failed to start crit review"),
         onStateChange: (topicId, critState) =>
             setState("critReviews", topicId, critState ?? undefined),
     });
@@ -256,8 +257,6 @@ export function AbProvider(props: { children: JSX.Element }) {
 
         client.onError((err: RippleError) => {
             console.error("Client connection error:", err);
-            // Crit start errors are shown next to the topic's Review button instead.
-            if (critReviewLauncher.handleSendError(err.failureCode, err.message)) return;
             setState({
                 isConnecting: false,
                 error: err.message || "Connection failed",
@@ -551,11 +550,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         if (!client) return;
         const c = client;
         const host = window.location.hostname || "localhost";
-        try {
-            critReviewLauncher.start(topicId, () => c.startCritReview(topicId, host));
-        } catch (err: unknown) {
-            setState("error", errMsg(err, "Failed to start crit review"));
-        }
+        critReviewLauncher.start(topicId, () => c.startCritReview(topicId, host));
     };
 
     const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);

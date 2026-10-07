@@ -14,22 +14,14 @@ interface CritReviewLauncherOptions {
     // once the user gesture is gone, so the tab is opened before the server replies.
     openTab: () => ReviewTab | null;
     onStateChange: (topicId: string, state: CritReviewState | null) => void;
-    // Safety net for failures the client cannot attribute to a topic (e.g. an unexpected
-    // error code on the one-way send): give up instead of spinning forever.
+    // Turns a rejected /crit/start request into the reason shown to the user.
+    describeError: (err: unknown) => string;
+    // Safety net when neither critReviewStarted nor critReviewFailed arrives after the
+    // request was accepted: give up instead of spinning forever.
     timeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-
-// Validation errors of the one-way /crit/start send. Ripple delivers them without a
-// correlationId, address, or topicId, so the topic has to be inferred.
-export const CRIT_START_ERROR_CODES = {
-    topicNotFound: 10001, // "Topic not found: <topicId>" — shared with other endpoints
-    notAvailable: 10011, // "Crit review not available: <reason>"
-    invalidHost: 10012, // "Invalid crit review host: <host>"
-} as const;
-
-const TOPIC_NOT_FOUND_PATTERN = /^Topic not found: (.+)$/;
 
 const isHttpUrl = (url: string) => /^https?:\/\//i.test(url);
 
@@ -40,14 +32,15 @@ interface PendingReview {
 
 export class CritReviewLauncher {
     private readonly options: CritReviewLauncherOptions;
-    // Insertion order is start order, which latestPendingTopicId relies on.
     private pending = new Map<string, PendingReview>();
 
     constructor(options: CritReviewLauncherOptions) {
         this.options = options;
     }
 
-    start(topicId: string, send: () => void): boolean {
+    // `send` issues the /crit/start request; a rejection (validation error, disconnect)
+    // fails this attempt. The result itself arrives later via handleStarted/handleFailed.
+    start(topicId: string, send: () => Promise<unknown>): boolean {
         if (this.pending.has(topicId)) return false;
 
         const tab = this.options.openTab();
@@ -55,25 +48,19 @@ export class CritReviewLauncher {
             () => this.handleFailed(topicId, "Crit review did not respond in time"),
             this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS
         );
-        this.pending.set(topicId, { tab, timer });
+        const entry: PendingReview = { tab, timer };
+        this.pending.set(topicId, entry);
         this.options.onStateChange(topicId, { status: "starting" });
-        try {
-            send();
-        } catch (err) {
-            this.cancel(topicId);
-            throw err;
-        }
+        send().catch((err: unknown) => {
+            // Ignore a late rejection once this attempt has ended or been replaced.
+            if (this.pending.get(topicId) !== entry) return;
+            this.handleFailed(topicId, this.options.describeError(err));
+        });
         return true;
     }
 
     isPending(topicId: string): boolean {
         return this.pending.has(topicId);
-    }
-
-    latestPendingTopicId(): string | null {
-        let latest: string | null = null;
-        for (const topicId of this.pending.keys()) latest = topicId;
-        return latest;
     }
 
     handleStarted(topicId: string, url: string) {
@@ -98,25 +85,6 @@ export class CritReviewLauncher {
         if (tab === undefined) return;
         if (tab && !tab.closed) tab.close();
         this.options.onStateChange(topicId, { status: "failed", reason });
-    }
-
-    // Fails the pending review an error belongs to. Returns false when the error cannot be
-    // attributed to a pending review; unexpected codes fall through to the timeout.
-    handleSendError(failureCode: number, message: string): boolean {
-        let topicId: string | null = null;
-        if (failureCode === CRIT_START_ERROR_CODES.topicNotFound) {
-            const id = TOPIC_NOT_FOUND_PATTERN.exec(message)?.[1];
-            if (id !== undefined && this.pending.has(id)) topicId = id;
-        } else if (
-            failureCode === CRIT_START_ERROR_CODES.notAvailable ||
-            failureCode === CRIT_START_ERROR_CODES.invalidHost
-        ) {
-            // The server validates sends in order, so the newest start is the likeliest source.
-            topicId = this.latestPendingTopicId();
-        }
-        if (topicId === null) return false;
-        this.handleFailed(topicId, message);
-        return true;
     }
 
     cancel(topicId: string) {
