@@ -497,4 +497,49 @@ describe("AbClient", () => {
 
         expect(onGoalChanged).toHaveBeenCalledWith("t1", "Implement the login feature");
     });
+
+    it("should send /crit/start with topicId and host", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        client.startCritReview("t1", "192.168.1.10");
+
+        const sent = ws.getSentJSON();
+        const msg = sent.find((m) => m.type === "send" && m.address === "/crit/start");
+        expect(msg).toBeDefined();
+        expect(msg!.body).toEqual({ topicId: "t1", host: "192.168.1.10" });
+    });
+
+    it("should handle push events for critReviewStarted and critReviewFailed", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        const onStarted = vi.fn();
+        const onFailed = vi.fn();
+        client.onEvent("critReviewStarted", onStarted);
+        client.onEvent("critReviewFailed", onFailed);
+
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "critReviewStarted",
+                topicId: "t1",
+                port: 9080,
+                url: "http://192.168.1.10:9080/",
+            },
+        });
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "critReviewFailed",
+                topicId: "t2",
+                reason: "crit status failed (is crit on PATH?)",
+            },
+        });
+
+        expect(onStarted).toHaveBeenCalledWith("t1", 9080, "http://192.168.1.10:9080/");
+        expect(onFailed).toHaveBeenCalledWith("t2", "crit status failed (is crit on PATH?)");
+    });
 });

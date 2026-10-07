@@ -23,6 +23,8 @@ interface EventHandlerMap {
     topicAdded: (topic: TopicData) => void;
     topicRemoved: (topicId: string) => void;
     topicsUpdated: (requesterId: string) => void;
+    critReviewStarted: (topicId: string, port: number, url: string) => void;
+    critReviewFailed: (topicId: string, reason: string) => void;
 }
 
 type EventName = keyof EventHandlerMap;
@@ -38,6 +40,9 @@ interface PushEventBody {
     options?: ConfigOptionData | null;
     commands?: CommandData[];
     topic?: TopicData;
+    port?: number;
+    url?: string;
+    reason?: string;
 }
 
 type OkResponse = { ok: boolean };
@@ -133,6 +138,14 @@ export class AbClient {
             const handlers = (this.eventHandlers.get("topicRemoved") ??
                 []) as EventHandlerMap["topicRemoved"][];
             handlers.forEach((fn) => fn(pb.topicId!));
+        } else if (eventName === "critReviewStarted") {
+            const handlers = (this.eventHandlers.get("critReviewStarted") ??
+                []) as EventHandlerMap["critReviewStarted"][];
+            handlers.forEach((fn) => fn(pb.topicId!, pb.port!, pb.url!));
+        } else if (eventName === "critReviewFailed") {
+            const handlers = (this.eventHandlers.get("critReviewFailed") ??
+                []) as EventHandlerMap["critReviewFailed"][];
+            handlers.forEach((fn) => fn(pb.topicId!, pb.reason ?? ""));
         }
     }
 
@@ -324,6 +337,10 @@ export class AbClient {
 
     resolveApproval(topicId: string, optionId: string) {
         this.ripple.send("/approval/resolve", { topicId, optionId });
+    }
+
+    startCritReview(topicId: string, host: string) {
+        this.ripple.send("/crit/start", { topicId, host });
     }
 
     copyTopic(topicId: string): Promise<string> {

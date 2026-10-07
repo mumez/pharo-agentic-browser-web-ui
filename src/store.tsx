@@ -15,6 +15,7 @@ import {
     PermissionNotificationBatcher,
     createBrowserNotificationApi,
 } from "./permissionNotificationBatcher";
+import { CritReviewLauncher, type CritReviewState } from "./critReviewLauncher";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -38,6 +39,7 @@ interface AbState {
     availableCommands: CommandData[];
     modelOptions: ConfigOptionData | null;
     modeOptions: ConfigOptionData | null;
+    critReviews: Record<string, CritReviewState | undefined>;
 }
 
 interface AbContextValue {
@@ -66,6 +68,8 @@ interface AbContextValue {
     getTopicSettings: (topicId: string) => Promise<TopicSettings>;
     setTopicSettings: (topicId: string, settings: Partial<TopicSettings>) => Promise<void>;
     saveApp: () => Promise<void>;
+    startCritReview: (topicId: string) => void;
+    dismissCritReview: (topicId: string) => void;
     clearError: () => void;
 }
 
@@ -105,6 +109,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         availableCommands: [],
         modelOptions: null,
         modeOptions: null,
+        critReviews: {},
     });
 
     let client: AbClient | null = null;
@@ -165,6 +170,24 @@ export function AbProvider(props: { children: JSX.Element }) {
         },
     });
 
+    // Errors signaled synchronously by /crit/start (unknown topic, unavailable, invalid host).
+    // They arrive without a correlationId, so they surface through onError.
+    const CRIT_START_ERROR_CODES = [10001, 10011, 10012];
+
+    const critReviewLauncher = new CritReviewLauncher({
+        openTab: () => {
+            const tab = window.open("", "_blank");
+            if (tab) {
+                tab.opener = null;
+                tab.document.title = "Starting crit review...";
+                tab.document.body.textContent = "Starting crit review...";
+            }
+            return tab;
+        },
+        onStateChange: (topicId, critState) =>
+            setState("critReviews", topicId, critState ?? undefined),
+    });
+
     const [hasNewMessage, setHasNewMessage] = createSignal(false);
 
     const handleVisibilityChange = () => {
@@ -184,6 +207,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         cancelMessageFlush();
         document.removeEventListener("visibilitychange", handleVisibilityChange);
         permissionNotificationBatcher.dispose();
+        critReviewLauncher.cancelAll();
         document.title = BASE_TITLE;
     });
 
@@ -212,6 +236,7 @@ export function AbProvider(props: { children: JSX.Element }) {
             client.close();
         }
         cancelMessageFlush();
+        critReviewLauncher.cancelAll();
         selectGeneration = 0;
         reloadGeneration = 0;
 
@@ -229,11 +254,15 @@ export function AbProvider(props: { children: JSX.Element }) {
         });
 
         client.onClose(() => {
+            critReviewLauncher.cancelAll();
             setState({ isConnecting: false, isConnected: false });
         });
 
         client.onError((err: RippleError) => {
             console.error("Client connection error:", err);
+            if (CRIT_START_ERROR_CODES.includes(err.failureCode)) {
+                critReviewLauncher.cancelAll();
+            }
             setState({
                 isConnecting: false,
                 error: err.message || "Connection failed",
@@ -292,6 +321,15 @@ export function AbProvider(props: { children: JSX.Element }) {
             } else if (isApprovalMessage(message)) {
                 permissionNotificationBatcher.cancelPendingPermissionRequest(message.id);
             }
+        });
+
+        client.onEvent("critReviewStarted", (topicId: string, _port: number, url: string) => {
+            critReviewLauncher.handleStarted(topicId, url);
+        });
+
+        client.onEvent("critReviewFailed", (topicId: string, reason: string) => {
+            critReviewLauncher.handleFailed(topicId);
+            setState("error", `Crit review failed: ${reason}`);
         });
 
         client.onEvent("modelChanged", (topicId: string, options: ConfigOptionData | null) => {
@@ -514,6 +552,20 @@ export function AbProvider(props: { children: JSX.Element }) {
         }
     };
 
+    // Must run synchronously inside the click handler so the blank tab is not popup-blocked.
+    const startCritReview = (topicId: string) => {
+        if (!client) return;
+        const c = client;
+        const host = window.location.hostname || "localhost";
+        try {
+            critReviewLauncher.start(topicId, () => c.startCritReview(topicId, host));
+        } catch (err: unknown) {
+            setState("error", errMsg(err, "Failed to start crit review"));
+        }
+    };
+
+    const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);
+
     const resolveApproval = (optionId: string) => {
         if (!client || !state.selectedTopicId) return;
         const pendingMessageId = [...state.messages]
@@ -553,6 +605,8 @@ export function AbProvider(props: { children: JSX.Element }) {
                 getTopicSettings,
                 setTopicSettings,
                 saveApp,
+                startCritReview,
+                dismissCritReview,
                 clearError,
             }}
         >
