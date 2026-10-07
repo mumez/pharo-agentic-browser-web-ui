@@ -170,10 +170,6 @@ export function AbProvider(props: { children: JSX.Element }) {
         },
     });
 
-    // Errors signaled synchronously by /crit/start (unknown topic, unavailable, invalid host).
-    // They arrive without a correlationId, so they surface through onError.
-    const CRIT_START_ERROR_CODES = [10001, 10011, 10012];
-
     const critReviewLauncher = new CritReviewLauncher({
         openTab: () => {
             const tab = window.open("", "_blank");
@@ -260,9 +256,8 @@ export function AbProvider(props: { children: JSX.Element }) {
 
         client.onError((err: RippleError) => {
             console.error("Client connection error:", err);
-            if (CRIT_START_ERROR_CODES.includes(err.failureCode)) {
-                critReviewLauncher.cancelAll();
-            }
+            // Crit start errors are shown next to the topic's Review button instead.
+            if (critReviewLauncher.handleSendError(err.failureCode, err.message)) return;
             setState({
                 isConnecting: false,
                 error: err.message || "Connection failed",
@@ -328,8 +323,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         });
 
         client.onEvent("critReviewFailed", (topicId: string, reason: string) => {
-            critReviewLauncher.handleFailed(topicId);
-            setState("error", `Crit review failed: ${reason}`);
+            critReviewLauncher.handleFailed(topicId, reason);
         });
 
         client.onEvent("modelChanged", (topicId: string, options: ConfigOptionData | null) => {
