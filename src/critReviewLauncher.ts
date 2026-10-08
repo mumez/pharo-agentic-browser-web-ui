@@ -16,8 +16,9 @@ interface CritReviewLauncherOptions {
     onStateChange: (topicId: string, state: CritReviewState | null) => void;
     // Turns a rejected /crit/start request into the reason shown to the user.
     describeError: (err: unknown) => string;
-    // Safety net when neither critReviewStarted nor critReviewFailed arrives after the
-    // request was accepted: give up instead of spinning forever.
+    // Safety net when neither critReviewStarted nor critReviewFailed arrives: give up
+    // instead of spinning forever. The server bounds crit startup to about 10 seconds, and
+    // a result that still arrives later is shown anyway (see handleStarted/handleFailed).
     timeoutMs?: number;
 }
 
@@ -63,26 +64,26 @@ export class CritReviewLauncher {
         return this.pending.has(topicId);
     }
 
+    // Results also count when no start is pending (e.g. after the timeout): they are only
+    // pushed to the requesting connection, so they always belong to this client's attempt.
     handleStarted(topicId: string, url: string) {
         if (!isHttpUrl(url)) {
             this.handleFailed(topicId, `Invalid review URL: ${url}`);
             return;
         }
         const tab = this.take(topicId);
-        if (tab === undefined) return;
 
         if (tab && !tab.closed) {
             tab.location.href = url;
             this.options.onStateChange(topicId, null);
         } else {
-            // Popup blocked or closed by the user: fall back to a link the user can click.
+            // Popup blocked, closed by the user, or already given up on: fall back to a link.
             this.options.onStateChange(topicId, { status: "ready", url });
         }
     }
 
     handleFailed(topicId: string, reason: string) {
         const tab = this.take(topicId);
-        if (tab === undefined) return;
         if (tab && !tab.closed) tab.close();
         this.options.onStateChange(topicId, { status: "failed", reason });
     }

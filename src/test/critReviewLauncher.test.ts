@@ -234,11 +234,33 @@ describe("CritReviewLauncher", () => {
         expect(states.size).toBe(0);
     });
 
-    it("ignores results for topics without a pending start", () => {
-        const { launcher, onStateChange } = createLauncher(createTab);
+    it("shows a link when the review starts after the timeout", () => {
+        const tab = createTab();
+        const { launcher, states } = createLauncher(() => tab, 1000);
+
+        launcher.start("t1", accepted());
+        vi.advanceTimersByTime(1000);
+        expect(tab.close).toHaveBeenCalled();
 
         launcher.handleStarted("t1", "http://host:9080/");
-        launcher.handleFailed("t1", "crit not found");
+        expect(states.get("t1")).toEqual({ status: "ready", url: "http://host:9080/" });
+    });
+
+    it("surfaces a failure that arrives after the review started", () => {
+        const tab = createTab();
+        const { launcher, states } = createLauncher(() => tab);
+
+        launcher.start("t1", accepted());
+        launcher.handleStarted("t1", "http://host:9080/");
+        launcher.handleFailed("t1", "crit exited");
+
+        expect(tab.location.href).toBe("http://host:9080/");
+        expect(states.get("t1")).toEqual({ status: "failed", reason: "crit exited" });
+    });
+
+    it("ignores a cancel for a topic without a pending start", () => {
+        const { launcher, onStateChange } = createLauncher(createTab);
+
         launcher.cancel("t1");
 
         expect(onStateChange).not.toHaveBeenCalled();
