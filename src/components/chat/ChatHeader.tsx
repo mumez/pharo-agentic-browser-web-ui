@@ -1,20 +1,22 @@
-import { Show } from "solid-js";
-import { useAb } from "../../store";
-import CritReviewControls from "./CritReviewControls";
-import ModelModeSelectors from "./ModelModeSelectors";
+import { type JSX, Show } from "solid-js";
 
+/**
+ * Presentational header: everything it renders comes from props. Store-connected
+ * widgets (crit review, model/mode selectors) are composed in by the parent via children.
+ */
 interface ChatHeaderProps {
+    title: string | undefined;
+    topicId: string | undefined;
     onBack?: () => void;
     onOpenInfo: () => void;
     isWorking: boolean;
     hasThinkMessages: boolean;
     allThinkCollapsed: boolean;
     onToggleAllThinks: () => void;
+    children?: JSX.Element;
 }
 
 export default function ChatHeader(props: ChatHeaderProps) {
-    const { selectedTopic } = useAb();
-
     return (
         <div class="sticky top-0 z-10 px-3 py-2.5 md:p-4 border-b border-base-300 bg-base-100/90 backdrop-blur-md flex flex-wrap items-center gap-x-2 gap-y-2">
             {/* Back button — mobile only */}
@@ -44,7 +46,7 @@ export default function ChatHeader(props: ChatHeaderProps) {
             </Show>
             <div class="min-w-0 flex-1">
                 <h2 class="font-bold text-base md:text-lg leading-tight truncate flex items-center gap-1.5">
-                    <span class="truncate">{selectedTopic()?.title}</span>
+                    <span class="truncate">{props.title}</span>
                     <button
                         class="btn btn-ghost btn-xs btn-circle shrink-0"
                         onClick={() => props.onOpenInfo()}
@@ -70,7 +72,7 @@ export default function ChatHeader(props: ChatHeaderProps) {
                 </h2>
                 <div class="hidden md:flex items-center gap-1.5 mt-0.5 text-xs opacity-60">
                     <span class="font-mono bg-base-200 px-1 rounded truncate max-w-[150px]">
-                        {selectedTopic()?.topicId}
+                        {props.topicId}
                     </span>
                 </div>
             </div>
@@ -102,11 +104,7 @@ export default function ChatHeader(props: ChatHeaderProps) {
                 </button>
             </Show>
 
-            {/* Crit diff review */}
-            <CritReviewControls />
-
-            {/* Model / Mode selectors — stacked vertically on both mobile and desktop */}
-            <ModelModeSelectors />
+            {props.children}
         </div>
     );
 }

@@ -12,6 +12,8 @@ import { useAb } from "../store";
 import ApprovalMessage from "./chat/ApprovalMessage";
 import ChatHeader from "./chat/ChatHeader";
 import ChatMessage from "./chat/ChatMessage";
+import CritReviewControls from "./chat/CritReviewControls";
+import ModelModeSelectors from "./chat/ModelModeSelectors";
 import SystemMessage from "./chat/SystemMessage";
 import ThinkMessage from "./chat/ThinkMessage";
 import TopicInfoModal from "./chat/TopicInfoModal";
@@ -113,13 +115,21 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                 }
             >
                 <ChatHeader
+                    title={selectedTopic()?.title}
+                    topicId={selectedTopic()?.topicId}
                     onBack={props.onBack}
                     onOpenInfo={() => setIsInfoModalOpen(true)}
                     isWorking={isWorking()}
                     hasThinkMessages={hasThinkMessages()}
                     allThinkCollapsed={allThinkCollapsed()}
                     onToggleAllThinks={toggleAllThinks}
-                />
+                >
+                    {/* Crit diff review */}
+                    <CritReviewControls />
+
+                    {/* Model / Mode selectors — stacked vertically on both mobile and desktop */}
+                    <ModelModeSelectors />
+                </ChatHeader>
 
                 {/* Message Log */}
                 <div ref={messageLogRef} class="flex-1 overflow-y-auto p-4 space-y-4">
