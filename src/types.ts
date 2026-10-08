@@ -11,6 +11,7 @@ export interface TopicData {
     currentMode: string;
     lastUpdated: string;
     workingDirectoryPath: string;
+    critReviewAvailable: boolean;
 }
 
 export type MessageSender = "human" | "ai" | "system";
