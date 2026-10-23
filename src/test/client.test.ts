@@ -497,4 +497,81 @@ describe("AbClient", () => {
 
         expect(onGoalChanged).toHaveBeenCalledWith("t1", "Implement the login feature");
     });
+
+    it("should handle /crit/start request-reply", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        const promise = client.startCritReview("t1", "192.168.1.10");
+
+        const sent = ws.getSentJSON();
+        const request = sent.find((m) => m.type === "request" && m.address === "/crit/start");
+        expect(request).toBeDefined();
+        expect(request!.body).toEqual({ topicId: "t1", host: "192.168.1.10" });
+
+        ws.simulateMessageFromServer({
+            type: "reply",
+            address: "/crit/start",
+            correlationId: request!.correlationId,
+            body: { ok: true },
+        });
+
+        await expect(promise).resolves.toBe(true);
+    });
+
+    it("should reject /crit/start on a validation error", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        const promise = client.startCritReview("t1", "192.168.1.10");
+
+        const request = ws
+            .getSentJSON()
+            .find((m) => m.type === "request" && m.address === "/crit/start");
+        ws.simulateMessageFromServer({
+            type: "err",
+            failureType: "application",
+            failureCode: 10011,
+            message: "Crit review not available: useCrit is false",
+            correlationId: request!.correlationId,
+        });
+
+        await expect(promise).rejects.toMatchObject({
+            failureCode: 10011,
+            message: "Crit review not available: useCrit is false",
+        });
+    });
+
+    it("should handle push events for critReviewStarted and critReviewFailed", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        const onStarted = vi.fn();
+        const onFailed = vi.fn();
+        client.onEvent("critReviewStarted", onStarted);
+        client.onEvent("critReviewFailed", onFailed);
+
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "critReviewStarted",
+                topicId: "t1",
+                port: 9080,
+                url: "http://192.168.1.10:9080/",
+            },
+        });
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "critReviewFailed",
+                topicId: "t2",
+                reason: "crit status failed (is crit on PATH?)",
+            },
+        });
+
+        expect(onStarted).toHaveBeenCalledWith("t1", 9080, "http://192.168.1.10:9080/");
+        expect(onFailed).toHaveBeenCalledWith("t2", "crit status failed (is crit on PATH?)");
+    });
 });
