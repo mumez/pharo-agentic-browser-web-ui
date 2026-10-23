@@ -37,7 +37,7 @@ export default function CritReviewControls() {
                                 if (topicId) startCritReview(topicId);
                             }}
                             disabled={
-                                selectedTopic()?.status === "initial" ||
+                                selectedTopic()?.status !== "endTurn" ||
                                 critReview()?.status === "starting"
                             }
                             title="Review changes with crit"
