@@ -137,6 +137,51 @@ describe("AbClient", () => {
         expect(promptCancel!.body).toEqual({ topicId: "t1" });
     });
 
+    it("should send messageId with /approval/resolve", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        client.resolveApproval("t1", "m1", "allowOnce");
+        const resolveSend = ws
+            .getSentJSON()
+            .find((m) => m.type === "send" && m.address === "/approval/resolve");
+        expect(resolveSend).toBeDefined();
+        expect(resolveSend!.body).toEqual({
+            topicId: "t1",
+            messageId: "m1",
+            optionId: "allowOnce",
+        });
+    });
+
+    it("should route error 10003 to approvalResolveFailed instead of onError", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+        const onError = vi.fn();
+        const onResolveFailed = vi.fn();
+        client.onError(onError);
+        client.onEvent("approvalResolveFailed", onResolveFailed);
+
+        ws.simulateMessageFromServer({
+            type: "err",
+            failureType: "application",
+            failureCode: 10003,
+            message: "No pending approval for topic: t1",
+        });
+        expect(onResolveFailed).toHaveBeenCalledWith(
+            expect.objectContaining({ failureCode: 10003 })
+        );
+        expect(onError).not.toHaveBeenCalled();
+
+        ws.simulateMessageFromServer({
+            type: "err",
+            failureType: "application",
+            failureCode: 10001,
+            message: "Topic not found: t1",
+        });
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10001 }));
+        expect(onResolveFailed).toHaveBeenCalledTimes(1);
+    });
+
     it("should receive messages chunk via getAllMessages", async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         const ws = MockWebSocket.lastInstance()!;

@@ -64,7 +64,7 @@ interface AbContextValue {
     setMode: (topicId: string, optionId: string) => Promise<void>;
     sendPrompt: (text: string) => void;
     cancelPrompt: () => void;
-    resolveApproval: (optionId: string) => void;
+    resolveApproval: (messageId: string, optionId: string) => void;
     getTopicSettings: (topicId: string) => Promise<TopicSettings>;
     setTopicSettings: (topicId: string, settings: Partial<TopicSettings>) => Promise<void>;
     saveApp: () => Promise<void>;
@@ -317,6 +317,14 @@ export function AbProvider(props: { children: JSX.Element }) {
             }
         });
 
+        // The approval was already answered (e.g. by a timeout): reload so the stale
+        // approval shows the server's answer and the next pending one becomes active.
+        client.onEvent("approvalResolveFailed", (err: RippleError) => {
+            console.warn("Approval already resolved:", err.message);
+            const topicId = untrack(() => state.selectedTopicId);
+            if (topicId) reloadMessages(topicId);
+        });
+
         client.onEvent("critReviewStarted", (topicId: string, _port: number, url: string) => {
             critReviewLauncher.handleStarted(topicId, url);
         });
@@ -555,19 +563,18 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);
 
-    const resolveApproval = (optionId: string) => {
+    const resolveApproval = (messageId: string, optionId: string) => {
         if (!client || !state.selectedTopicId) return;
-        const pendingMessageId = [...state.messages]
-            .reverse()
-            .find((message) => isPendingApprovalMessage(message))?.id;
-        client.resolveApproval(state.selectedTopicId, optionId);
-
-        if (pendingMessageId) {
-            permissionNotificationBatcher.cancelPendingPermissionRequest(pendingMessageId);
-        }
+        client.resolveApproval(state.selectedTopicId, messageId, optionId);
+        permissionNotificationBatcher.cancelPendingPermissionRequest(messageId);
 
         // Optimistically resolve locally
-        setState("messages", (m) => isPendingApprovalMessage(m), "approvalOption", optionId);
+        setState(
+            "messages",
+            (m) => m.id === messageId && isPendingApprovalMessage(m),
+            "approvalOption",
+            optionId
+        );
     };
 
     return (
