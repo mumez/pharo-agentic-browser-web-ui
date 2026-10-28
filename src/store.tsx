@@ -16,6 +16,7 @@ import {
     createBrowserNotificationApi,
 } from "./permissionNotificationBatcher";
 import { CritReviewLauncher, type CritReviewState } from "./critReviewLauncher";
+import { isApprovalMessage, isPendingApprovalMessage } from "./utils";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -85,13 +86,6 @@ export const errMsg = (err: unknown, fallback: string): string => {
     }
     return fallback;
 };
-
-const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalOption">) =>
-    (message.type === "aiPermission" || message.type === "exportApproval") &&
-    message.approvalOption === null;
-
-const isApprovalMessage = (message: Pick<MessageData, "type">) =>
-    message.type === "aiPermission" || message.type === "exportApproval";
 
 const BASE_TITLE = document.title;
 
@@ -319,11 +313,15 @@ export function AbProvider(props: { children: JSX.Element }) {
 
         // The approval was already answered (e.g. by a timeout): reload so the stale
         // approval shows the server's answer and the next pending one becomes active.
-        client.onEvent("approvalResolveFailed", (err: RippleError) => {
-            console.warn("Approval already resolved:", err.message);
-            const topicId = untrack(() => state.selectedTopicId);
-            if (topicId) reloadMessages(topicId);
-        });
+        // reloadMessages writes state.messages, so only reload while the topic is still selected;
+        // otherwise selecting it again loads fresh messages anyway.
+        client.onEvent(
+            "approvalResolveFailed",
+            (topicId: string, messageId: string, err: RippleError) => {
+                console.warn(`Approval ${messageId} already resolved:`, err.message);
+                if (untrack(() => state.selectedTopicId) === topicId) reloadMessages(topicId);
+            }
+        );
 
         client.onEvent("critReviewStarted", (topicId: string, _port: number, url: string) => {
             critReviewLauncher.handleStarted(topicId, url);

@@ -5,6 +5,13 @@ import { MockWebSocket } from "./mocks";
 // Stub the global WebSocket
 vi.stubGlobal("WebSocket", MockWebSocket);
 
+const noPendingApprovalError = {
+    type: "err",
+    failureType: "application",
+    failureCode: 10003,
+    message: "No pending approval for topic: t1",
+};
+
 describe("AbClient", () => {
     let client: AbClient;
     const sessionId = "test-session-uuid";
@@ -153,7 +160,7 @@ describe("AbClient", () => {
         });
     });
 
-    it("should route error 10003 to approvalResolveFailed instead of onError", async () => {
+    it("should route error 10003 to approvalResolveFailed with the last resolve", async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         const ws = MockWebSocket.lastInstance()!;
         const onError = vi.fn();
@@ -161,13 +168,11 @@ describe("AbClient", () => {
         client.onError(onError);
         client.onEvent("approvalResolveFailed", onResolveFailed);
 
-        ws.simulateMessageFromServer({
-            type: "err",
-            failureType: "application",
-            failureCode: 10003,
-            message: "No pending approval for topic: t1",
-        });
+        client.resolveApproval("t1", "m1", "allowOnce");
+        ws.simulateMessageFromServer(noPendingApprovalError);
         expect(onResolveFailed).toHaveBeenCalledWith(
+            "t1",
+            "m1",
             expect.objectContaining({ failureCode: 10003 })
         );
         expect(onError).not.toHaveBeenCalled();
@@ -180,6 +185,30 @@ describe("AbClient", () => {
         });
         expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10001 }));
         expect(onResolveFailed).toHaveBeenCalledTimes(1);
+    });
+
+    it("should pass error 10003 to onError when no resolve was sent", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+        const onError = vi.fn();
+        const onResolveFailed = vi.fn();
+        client.onError(onError);
+        client.onEvent("approvalResolveFailed", onResolveFailed);
+
+        ws.simulateMessageFromServer(noPendingApprovalError);
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10003 }));
+        expect(onResolveFailed).not.toHaveBeenCalled();
+    });
+
+    it("should pass error 10003 to onError when approvalResolveFailed has no subscriber", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+        const onError = vi.fn();
+        client.onError(onError);
+
+        client.resolveApproval("t1", "m1", "allowOnce");
+        ws.simulateMessageFromServer(noPendingApprovalError);
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10003 }));
     });
 
     it("should receive messages chunk via getAllMessages", async () => {

@@ -25,7 +25,7 @@ interface EventHandlerMap {
     topicsUpdated: (requesterId: string) => void;
     critReviewStarted: (topicId: string, port: number, url: string) => void;
     critReviewFailed: (topicId: string, reason: string) => void;
-    approvalResolveFailed: (err: RippleError) => void;
+    approvalResolveFailed: (topicId: string, messageId: string, err: RippleError) => void;
 }
 
 type EventName = keyof EventHandlerMap;
@@ -56,6 +56,8 @@ export class AbClient {
     private eventHandlers = new Map<string, EventHandlerMap[EventName][]>();
     private openHandler: ((client: AbClient) => void) | null = null;
     private errorHandler: ((err: RippleError) => void) | null = null;
+    // Send errors carry no correlationId, so a 10003 is attributed to the most recent resolve.
+    private lastResolve: { topicId: string; messageId: string } | null = null;
 
     constructor(host: string, port: number, sessionId: string) {
         const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -100,11 +102,14 @@ export class AbClient {
     }
 
     private handleError(err: RippleError) {
-        if (err.failureCode === ERR_NO_PENDING_APPROVAL) {
+        if (err.failureCode === ERR_NO_PENDING_APPROVAL && this.lastResolve) {
             const handlers = (this.eventHandlers.get("approvalResolveFailed") ??
                 []) as EventHandlerMap["approvalResolveFailed"][];
-            handlers.forEach((fn) => fn(err));
-            return;
+            if (handlers.length > 0) {
+                const { topicId, messageId } = this.lastResolve;
+                handlers.forEach((fn) => fn(topicId, messageId, err));
+                return;
+            }
         }
         if (this.errorHandler) this.errorHandler(err);
         else console.error(err);
@@ -353,6 +358,7 @@ export class AbClient {
     }
 
     resolveApproval(topicId: string, messageId: string, optionId: string) {
+        this.lastResolve = { topicId, messageId };
         this.ripple.send("/approval/resolve", { topicId, messageId, optionId });
     }
 

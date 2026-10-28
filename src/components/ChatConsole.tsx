@@ -9,6 +9,7 @@ import {
     onCleanup,
 } from "solid-js";
 import { useAb } from "../store";
+import { isApprovalMessage, isPendingApprovalMessage } from "../utils";
 import ApprovalMessage from "./chat/ApprovalMessage";
 import ChatHeader from "./chat/ChatHeader";
 import ChatMessage from "./chat/ChatMessage";
@@ -35,12 +36,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
     // Show one pending approval at a time: the oldest one stays active until it is
     // answered, even if newer approvals arrive in the meantime.
     const activeApprovalId = createMemo(
-        () =>
-            state.messages.find(
-                (m) =>
-                    (m.type === "aiPermission" || m.type === "exportApproval") &&
-                    m.approvalOption === null
-            )?.id ?? null
+        () => state.messages.find((m) => isPendingApprovalMessage(m))?.id ?? null
     );
 
     const handleResolveApproval = (messageId: string, optionId: string) => {
@@ -171,12 +167,7 @@ export default function ChatConsole(props: { onBack?: () => void }) {
                                             onToggle={() => toggleThink(message.id)}
                                         />
                                     </Match>
-                                    <Match
-                                        when={
-                                            message.type === "aiPermission" ||
-                                            message.type === "exportApproval"
-                                        }
-                                    >
+                                    <Match when={isApprovalMessage(message)}>
                                         <ApprovalMessage
                                             message={message}
                                             isActive={
