@@ -3,7 +3,7 @@ import type { MessageData } from "../../types";
 
 interface ApprovalMessageProps {
     message: MessageData;
-    /** True when this is the latest unresolved approval and nothing has been submitted yet. */
+    /** True when this is the oldest unresolved approval and nothing has been submitted yet. */
     isActive: boolean;
     /** Option submitted locally, before the server confirms the resolution. */
     submittedOptionId: string | undefined;
@@ -41,9 +41,11 @@ export default function ApprovalMessage(props: ApprovalMessageProps) {
             <div class="flex flex-wrap gap-2 mt-1">
                 <For each={props.message.approvalOptions}>
                     {(opt) => {
+                        // The server's answer wins over the local submission, which may have
+                        // been rejected because the approval was already answered (e.g. by a timeout).
                         const isSelected = () =>
-                            props.message.approvalOption === opt.optionId ||
-                            props.submittedOptionId === opt.optionId;
+                            (props.message.approvalOption ?? props.submittedOptionId) ===
+                            opt.optionId;
                         return (
                             <button
                                 class={`btn btn-sm rounded-lg transition-all ${

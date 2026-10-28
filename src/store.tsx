@@ -16,6 +16,7 @@ import {
     createBrowserNotificationApi,
 } from "./permissionNotificationBatcher";
 import { CritReviewLauncher, type CritReviewState } from "./critReviewLauncher";
+import { isApprovalMessage, isPendingApprovalMessage } from "./utils";
 import type { RippleError } from "ripple-st-client";
 import type {
     AgentPreset,
@@ -64,7 +65,7 @@ interface AbContextValue {
     setMode: (topicId: string, optionId: string) => Promise<void>;
     sendPrompt: (text: string) => void;
     cancelPrompt: () => void;
-    resolveApproval: (optionId: string) => void;
+    resolveApproval: (messageId: string, optionId: string) => void;
     getTopicSettings: (topicId: string) => Promise<TopicSettings>;
     setTopicSettings: (topicId: string, settings: Partial<TopicSettings>) => Promise<void>;
     saveApp: () => Promise<void>;
@@ -85,13 +86,6 @@ export const errMsg = (err: unknown, fallback: string): string => {
     }
     return fallback;
 };
-
-const isPendingApprovalMessage = (message: Pick<MessageData, "type" | "approvalOption">) =>
-    (message.type === "aiPermission" || message.type === "exportApproval") &&
-    message.approvalOption === null;
-
-const isApprovalMessage = (message: Pick<MessageData, "type">) =>
-    message.type === "aiPermission" || message.type === "exportApproval";
 
 const BASE_TITLE = document.title;
 
@@ -316,6 +310,18 @@ export function AbProvider(props: { children: JSX.Element }) {
                 permissionNotificationBatcher.cancelPendingPermissionRequest(message.id);
             }
         });
+
+        // The approval was already answered (e.g. by a timeout): reload so the stale
+        // approval shows the server's answer and the next pending one becomes active.
+        // reloadMessages writes state.messages, so only reload while the topic is still selected;
+        // otherwise selecting it again loads fresh messages anyway.
+        client.onEvent(
+            "approvalResolveFailed",
+            (topicId: string, messageId: string, err: RippleError) => {
+                console.warn(`Approval ${messageId} already resolved:`, err.message);
+                if (untrack(() => state.selectedTopicId) === topicId) reloadMessages(topicId);
+            }
+        );
 
         client.onEvent("critReviewStarted", (topicId: string, _port: number, url: string) => {
             critReviewLauncher.handleStarted(topicId, url);
@@ -555,19 +561,18 @@ export function AbProvider(props: { children: JSX.Element }) {
 
     const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);
 
-    const resolveApproval = (optionId: string) => {
+    const resolveApproval = (messageId: string, optionId: string) => {
         if (!client || !state.selectedTopicId) return;
-        const pendingMessageId = [...state.messages]
-            .reverse()
-            .find((message) => isPendingApprovalMessage(message))?.id;
-        client.resolveApproval(state.selectedTopicId, optionId);
-
-        if (pendingMessageId) {
-            permissionNotificationBatcher.cancelPendingPermissionRequest(pendingMessageId);
-        }
+        client.resolveApproval(state.selectedTopicId, messageId, optionId);
+        permissionNotificationBatcher.cancelPendingPermissionRequest(messageId);
 
         // Optimistically resolve locally
-        setState("messages", (m) => isPendingApprovalMessage(m), "approvalOption", optionId);
+        setState(
+            "messages",
+            (m) => m.id === messageId && isPendingApprovalMessage(m),
+            "approvalOption",
+            optionId
+        );
     };
 
     return (
