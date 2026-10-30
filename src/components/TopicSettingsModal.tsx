@@ -1,6 +1,7 @@
 import { createSignal, onMount, Show } from "solid-js";
 import { useAb } from "../store";
 import type { AiPermissionTimeoutOption, TopicData, TopicSettings } from "../types";
+import { topicSettingsForUpdate } from "../utils";
 
 const isValidTimeoutSeconds = (n: number) => Number.isInteger(n) && n > 0;
 
@@ -32,11 +33,8 @@ export default function TopicSettingsModal(props: TopicSettingsModalProps) {
     const handleSave = async () => {
         const s = settings();
         if (!s || !isValidTimeoutSeconds(s.aiPermissionWaitTimeoutSeconds)) return;
-        // The legacy flag is derived from initialPromptSkill; send only the skill itself.
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { useStBuddySkillOnInitialPrompt, ...toSave } = s;
         try {
-            await setTopicSettings(props.topic.topicId, toSave);
+            await setTopicSettings(props.topic.topicId, topicSettingsForUpdate(s));
             props.onClose();
         } catch (err) {
             console.error(err);

@@ -58,6 +58,7 @@ export interface TopicSettings {
     useDefaultMcpServers: boolean;
     aiPermissionWaitTimeoutSeconds: number;
     aiPermissionTimeoutOption: AiPermissionTimeoutOption;
+    /** Skill invocation prepended to the first prompt (e.g. "/smalltalk-dev:st-buddy"); "" means no skill. */
     initialPromptSkill: string;
     /** Legacy flag derived from initialPromptSkill; still returned by the server but not edited here. */
     useStBuddySkillOnInitialPrompt?: boolean;
