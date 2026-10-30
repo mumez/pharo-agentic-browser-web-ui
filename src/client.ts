@@ -25,6 +25,7 @@ interface EventHandlerMap {
     topicsUpdated: (requesterId: string) => void;
     critReviewStarted: (topicId: string, port: number, url: string) => void;
     critReviewFailed: (topicId: string, reason: string) => void;
+    approvalResolveFailed: (topicId: string, messageId: string, err: RippleError) => void;
 }
 
 type EventName = keyof EventHandlerMap;
@@ -47,15 +48,22 @@ interface PushEventBody {
 
 type OkResponse = { ok: boolean };
 
+// /approval/resolve is a send, so this error arrives without a correlationId.
+export const ERR_NO_PENDING_APPROVAL = 10003;
+
 export class AbClient {
     private ripple: Ripple;
     private eventHandlers = new Map<string, EventHandlerMap[EventName][]>();
     private openHandler: ((client: AbClient) => void) | null = null;
+    private errorHandler: ((err: RippleError) => void) | null = null;
+    // Send errors carry no correlationId, so a 10003 is attributed to the most recent resolve.
+    private lastResolve: { topicId: string; messageId: string } | null = null;
 
     constructor(host: string, port: number, sessionId: string) {
         const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
         const url = `${wsScheme}://${host}:${port}/ws/agentic-browser?token=${sessionId}`;
         this.ripple = new Ripple(url);
+        this.ripple.onError((err: RippleError) => this.handleError(err));
         this.ripple.onOpen(() => {
             this.ripple.registerHandler(
                 "serverEventPushed",
@@ -90,7 +98,21 @@ export class AbClient {
     }
 
     onError(handler: (err: RippleError) => void) {
-        this.ripple.onError(handler);
+        this.errorHandler = handler;
+    }
+
+    private handleError(err: RippleError) {
+        if (err.failureCode === ERR_NO_PENDING_APPROVAL && this.lastResolve) {
+            const handlers = (this.eventHandlers.get("approvalResolveFailed") ??
+                []) as EventHandlerMap["approvalResolveFailed"][];
+            if (handlers.length > 0) {
+                const { topicId, messageId } = this.lastResolve;
+                handlers.forEach((fn) => fn(topicId, messageId, err));
+                return;
+            }
+        }
+        if (this.errorHandler) this.errorHandler(err);
+        else console.error(err);
     }
 
     close() {
@@ -335,8 +357,9 @@ export class AbClient {
         this.ripple.send("/prompt/cancel", { topicId });
     }
 
-    resolveApproval(topicId: string, optionId: string) {
-        this.ripple.send("/approval/resolve", { topicId, optionId });
+    resolveApproval(topicId: string, messageId: string, optionId: string) {
+        this.lastResolve = { topicId, messageId };
+        this.ripple.send("/approval/resolve", { topicId, messageId, optionId });
     }
 
     // Replies right after validation; the result arrives later as

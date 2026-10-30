@@ -5,6 +5,13 @@ import { MockWebSocket } from "./mocks";
 // Stub the global WebSocket
 vi.stubGlobal("WebSocket", MockWebSocket);
 
+const noPendingApprovalError = {
+    type: "err",
+    failureType: "application",
+    failureCode: 10003,
+    message: "No pending approval for topic: t1",
+};
+
 describe("AbClient", () => {
     let client: AbClient;
     const sessionId = "test-session-uuid";
@@ -135,6 +142,73 @@ describe("AbClient", () => {
         let promptCancel = sent.find((m) => m.type === "send" && m.address === "/prompt/cancel");
         expect(promptCancel).toBeDefined();
         expect(promptCancel!.body).toEqual({ topicId: "t1" });
+    });
+
+    it("should send messageId with /approval/resolve", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        client.resolveApproval("t1", "m1", "allowOnce");
+        const resolveSend = ws
+            .getSentJSON()
+            .find((m) => m.type === "send" && m.address === "/approval/resolve");
+        expect(resolveSend).toBeDefined();
+        expect(resolveSend!.body).toEqual({
+            topicId: "t1",
+            messageId: "m1",
+            optionId: "allowOnce",
+        });
+    });
+
+    it("should route error 10003 to approvalResolveFailed with the last resolve", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+        const onError = vi.fn();
+        const onResolveFailed = vi.fn();
+        client.onError(onError);
+        client.onEvent("approvalResolveFailed", onResolveFailed);
+
+        client.resolveApproval("t1", "m1", "allowOnce");
+        ws.simulateMessageFromServer(noPendingApprovalError);
+        expect(onResolveFailed).toHaveBeenCalledWith(
+            "t1",
+            "m1",
+            expect.objectContaining({ failureCode: 10003 })
+        );
+        expect(onError).not.toHaveBeenCalled();
+
+        ws.simulateMessageFromServer({
+            type: "err",
+            failureType: "application",
+            failureCode: 10001,
+            message: "Topic not found: t1",
+        });
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10001 }));
+        expect(onResolveFailed).toHaveBeenCalledTimes(1);
+    });
+
+    it("should pass error 10003 to onError when no resolve was sent", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+        const onError = vi.fn();
+        const onResolveFailed = vi.fn();
+        client.onError(onError);
+        client.onEvent("approvalResolveFailed", onResolveFailed);
+
+        ws.simulateMessageFromServer(noPendingApprovalError);
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10003 }));
+        expect(onResolveFailed).not.toHaveBeenCalled();
+    });
+
+    it("should pass error 10003 to onError when approvalResolveFailed has no subscriber", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+        const onError = vi.fn();
+        client.onError(onError);
+
+        client.resolveApproval("t1", "m1", "allowOnce");
+        ws.simulateMessageFromServer(noPendingApprovalError);
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ failureCode: 10003 }));
     });
 
     it("should receive messages chunk via getAllMessages", async () => {
@@ -372,6 +446,7 @@ describe("AbClient", () => {
                     aiPermissionWaitTimeoutSeconds: 1800,
                     aiPermissionTimeoutOption: "reject_once",
                     useStBuddySkillOnInitialPrompt: false,
+                    initialPromptSkill: "$other-skill",
                 },
             },
         });
@@ -383,6 +458,7 @@ describe("AbClient", () => {
         expect(settings.aiPermissionWaitTimeoutSeconds).toBe(1800);
         expect(settings.aiPermissionTimeoutOption).toBe("reject_once");
         expect(settings.useStBuddySkillOnInitialPrompt).toBe(false);
+        expect(settings.initialPromptSkill).toBe("$other-skill");
     });
 
     it("should handle getSettings error reply", async () => {

@@ -1,7 +1,7 @@
 {
     "name": "pharo-agentic-browser-web-ui",
     "private": true,
-    "version": "0.8.1",
+    "version": "0.9.0",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -22,7 +22,7 @@
         "@types/node": "^24.12.3",
         "@typescript-eslint/eslint-plugin": "^8.62.0",
         "@typescript-eslint/parser": "^8.62.0",
-        "daisyui": "^5.5.23",
+        "daisyui": "^5.7.50",
         "eslint": "^9.39.4",
         "eslint-plugin-solid": "^0.14.5",
         "jsdom": "^29.1.1",
