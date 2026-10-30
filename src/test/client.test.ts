@@ -446,6 +446,7 @@ describe("AbClient", () => {
                     aiPermissionWaitTimeoutSeconds: 1800,
                     aiPermissionTimeoutOption: "reject_once",
                     useStBuddySkillOnInitialPrompt: false,
+                    initialPromptSkill: "$other-skill",
                 },
             },
         });
@@ -457,6 +458,7 @@ describe("AbClient", () => {
         expect(settings.aiPermissionWaitTimeoutSeconds).toBe(1800);
         expect(settings.aiPermissionTimeoutOption).toBe("reject_once");
         expect(settings.useStBuddySkillOnInitialPrompt).toBe(false);
+        expect(settings.initialPromptSkill).toBe("$other-skill");
     });
 
     it("should handle getSettings error reply", async () => {

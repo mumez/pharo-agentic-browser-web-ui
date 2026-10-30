@@ -32,8 +32,11 @@ export default function TopicSettingsModal(props: TopicSettingsModalProps) {
     const handleSave = async () => {
         const s = settings();
         if (!s || !isValidTimeoutSeconds(s.aiPermissionWaitTimeoutSeconds)) return;
+        // The legacy flag is derived from initialPromptSkill; send only the skill itself.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { useStBuddySkillOnInitialPrompt, ...toSave } = s;
         try {
-            await setTopicSettings(props.topic.topicId, s);
+            await setTopicSettings(props.topic.topicId, toSave);
             props.onClose();
         } catch (err) {
             console.error(err);
@@ -108,21 +111,43 @@ export default function TopicSettingsModal(props: TopicSettingsModalProps) {
                             />
                         </div>
                         <div class="form-control">
-                            <label class="label cursor-pointer justify-start gap-3">
+                            <label class="label-text text-sm opacity-70 mb-1">
+                                Initial prompt skill
+                            </label>
+                            <div class="join w-full">
                                 <input
-                                    type="checkbox"
-                                    class="checkbox checkbox-primary checkbox-sm"
-                                    checked={settings()?.useStBuddySkillOnInitialPrompt ?? false}
-                                    onChange={(e) =>
-                                        patchSettings({
-                                            useStBuddySkillOnInitialPrompt: e.currentTarget.checked,
-                                        })
+                                    type="text"
+                                    class="input input-bordered input-sm join-item w-full font-mono"
+                                    placeholder="(none)"
+                                    value={settings()?.initialPromptSkill ?? ""}
+                                    onInput={(e) =>
+                                        patchSettings({ initialPromptSkill: e.currentTarget.value })
                                     }
                                 />
-                                <span class="label-text text-sm">
-                                    Use st-buddy skill on initial prompt
-                                </span>
-                            </label>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm join-item"
+                                    title="Clear"
+                                    aria-label="Clear initial prompt skill"
+                                    disabled={!settings()?.initialPromptSkill}
+                                    onClick={() => patchSettings({ initialPromptSkill: "" })}
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M6 18L18 6M6 6l12 12"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-control">
                             <label class="label cursor-pointer justify-start gap-3">

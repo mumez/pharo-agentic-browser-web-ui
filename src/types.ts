@@ -58,7 +58,9 @@ export interface TopicSettings {
     useDefaultMcpServers: boolean;
     aiPermissionWaitTimeoutSeconds: number;
     aiPermissionTimeoutOption: AiPermissionTimeoutOption;
-    useStBuddySkillOnInitialPrompt: boolean;
+    initialPromptSkill: string;
+    /** Legacy flag derived from initialPromptSkill; still returned by the server but not edited here. */
+    useStBuddySkillOnInitialPrompt?: boolean;
 }
 
 export type AiPermissionTimeoutOption = "allow_once" | "reject_once";
