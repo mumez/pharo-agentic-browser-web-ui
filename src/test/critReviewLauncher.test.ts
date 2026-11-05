@@ -444,6 +444,16 @@ describe("CritReviewLauncher", () => {
             expect(tab.focus).toHaveBeenCalledTimes(1);
         });
 
+        it("reuses the open tab for the fallback link too", () => {
+            const { launcher, openTab, tab } = createLauncherWithOpenReview();
+
+            expect(launcher.openReady("t1", url)).toBe(true);
+
+            expect(openTab).not.toHaveBeenCalled();
+            expect(tab.focus).toHaveBeenCalledTimes(1);
+            expect(tab.location.href).toBe(url);
+        });
+
         it("leaves the fallback link in place when its tab cannot be opened", () => {
             const { launcher, states } = createLauncher(() => null);
             launcher.start("t1", accepted());
