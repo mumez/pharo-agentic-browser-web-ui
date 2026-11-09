@@ -2,7 +2,8 @@ import { createMemo, Show } from "solid-js";
 import { useAb } from "../../store";
 
 export default function CritReviewControls() {
-    const { state, selectedTopic, startCritReview, dismissCritReview } = useAb();
+    const { state, selectedTopic, startCritReview, openReadyCritReview, dismissCritReview } =
+        useAb();
 
     const critReview = createMemo(() => {
         const topicId = state.selectedTopicId;
@@ -75,6 +76,12 @@ export default function CritReviewControls() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title={url()}
+                            onClick={(e) => {
+                                const topicId = state.selectedTopicId;
+                                if (topicId && openReadyCritReview(topicId, url())) {
+                                    e.preventDefault();
+                                }
+                            }}
                         >
                             Open review ↗
                         </a>

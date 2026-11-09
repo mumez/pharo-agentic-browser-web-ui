@@ -70,6 +70,7 @@ interface AbContextValue {
     setTopicSettings: (topicId: string, settings: Partial<TopicSettings>) => Promise<void>;
     saveApp: () => Promise<void>;
     startCritReview: (topicId: string) => void;
+    openReadyCritReview: (topicId: string, url: string) => boolean;
     dismissCritReview: (topicId: string) => void;
     clearError: () => void;
 }
@@ -165,10 +166,11 @@ export function AbProvider(props: { children: JSX.Element }) {
     });
 
     const critReviewLauncher = new CritReviewLauncher({
+        // The opener link stays intact: browsers refuse to navigate or focus a cross-origin
+        // tab without it, and the launcher reuses each topic's tab for later reviews.
         openTab: () => {
             const tab = window.open("", "_blank");
             if (tab) {
-                tab.opener = null;
                 tab.document.title = "Starting crit review...";
                 tab.document.body.textContent = "Starting crit review...";
             }
@@ -559,6 +561,9 @@ export function AbProvider(props: { children: JSX.Element }) {
         critReviewLauncher.start(topicId, () => c.startCritReview(topicId, host));
     };
 
+    const openReadyCritReview = (topicId: string, url: string) =>
+        critReviewLauncher.openReady(topicId, url);
+
     const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);
 
     const resolveApproval = (messageId: string, optionId: string) => {
@@ -600,6 +605,7 @@ export function AbProvider(props: { children: JSX.Element }) {
                 setTopicSettings,
                 saveApp,
                 startCritReview,
+                openReadyCritReview,
                 dismissCritReview,
                 clearError,
             }}
