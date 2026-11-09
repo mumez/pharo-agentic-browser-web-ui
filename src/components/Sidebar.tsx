@@ -356,19 +356,19 @@ export default function Sidebar() {
                         <ul class="p-2 space-y-1">
                             <For each={state.agents}>
                                 {(agent) => {
-                                    const isActive =
+                                    const isActive = () =>
                                         agent.command.join(" ") ===
                                         agentModalTopic()!.agentArguments.join(" ");
                                     return (
                                         <li>
                                             <button
                                                 class={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors ${
-                                                    isActive
+                                                    isActive()
                                                         ? "bg-primary text-primary-content font-semibold"
                                                         : "hover:bg-base-200"
                                                 }`}
                                                 onClick={() => {
-                                                    if (!isActive)
+                                                    if (!isActive())
                                                         setAgent(
                                                             agentModalTopic()!.topicId,
                                                             agent.command
@@ -377,7 +377,7 @@ export default function Sidebar() {
                                                 }}
                                             >
                                                 <span class="flex items-center gap-2">
-                                                    {isActive && (
+                                                    {isActive() && (
                                                         <svg
                                                             xmlns="http://www.w3.org/2000/svg"
                                                             class="h-4 w-4 shrink-0"
