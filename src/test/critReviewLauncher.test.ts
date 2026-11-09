@@ -6,13 +6,17 @@ import {
     reviewTabTarget,
 } from "../critReviewLauncher";
 
-function createTab(): ReviewTab & { close: ReturnType<typeof vi.fn> } {
+function createTab(): ReviewTab & {
+    close: ReturnType<typeof vi.fn>;
+    focus: ReturnType<typeof vi.fn>;
+} {
     const tab = {
         closed: false,
         location: { href: "about:blank" },
         close: vi.fn(() => {
             tab.closed = true;
         }),
+        focus: vi.fn(),
     };
     return tab;
 }
@@ -36,9 +40,12 @@ const flushPromises = async () => {
     await Promise.resolve();
 };
 
+// `openTab` stands for both openers: url is "" for a placeholder. A placeholder request
+// answers a pre-existing review tab when `isPlaceholder` returns false for it.
 function createLauncher(
     openTab: (url: string, target: string) => ReviewTab | null,
-    timeoutMs?: number
+    timeoutMs?: number,
+    isPlaceholder: (tab: ReviewTab) => boolean = () => true
 ) {
     const states = new Map<string, CritReviewState>();
     const onStateChange = vi.fn((topicId: string, s: CritReviewState | null) => {
@@ -47,7 +54,11 @@ function createLauncher(
     });
     const openTabSpy = vi.fn(openTab);
     const launcher = new CritReviewLauncher({
-        openTab: openTabSpy,
+        openPlaceholderTab: (target) => {
+            const tab = openTabSpy("", target);
+            return tab ? { tab, isPlaceholder: isPlaceholder(tab) } : null;
+        },
+        openUrlTab: openTabSpy,
         onStateChange,
         describeError: (err) => (err as { message: string }).message,
         timeoutMs,
@@ -306,23 +317,20 @@ describe("CritReviewLauncher", () => {
             expect(openTab).toHaveBeenCalledWith("", reviewTabTarget("t1"));
         });
 
-        it("reopens the review without restarting crit", () => {
-            const reopened = createTab();
+        it("reloads the review in its named tab without restarting crit", () => {
             const { launcher, states, openTab, tab } = createLauncherWithOpenReview();
-            openTab.mockImplementation(() => reopened);
             const send = accepted();
 
             expect(launcher.start("t1", send)).toBe(true);
+            launcher.start("t1", send);
 
             expect(send).not.toHaveBeenCalled();
-            expect(tab.close).toHaveBeenCalledTimes(1);
-            expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
+            expect(tab.close).not.toHaveBeenCalled();
+            expect(tab.focus).toHaveBeenCalledTimes(2);
+            expect(openTab).toHaveBeenCalledTimes(2);
+            expect(openTab).toHaveBeenCalledWith(url, reviewTabTarget("t1"));
             expect(states.has("t1")).toBe(false);
             expect(launcher.isPending("t1")).toBe(false);
-
-            launcher.start("t1", send);
-            expect(reopened.close).toHaveBeenCalledTimes(1);
-            expect(send).not.toHaveBeenCalled();
         });
 
         it("reopens the review after the user closed its tab", () => {
@@ -333,17 +341,72 @@ describe("CritReviewLauncher", () => {
             launcher.start("t1", send);
 
             expect(send).not.toHaveBeenCalled();
-            expect(tab.close).not.toHaveBeenCalled();
             expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
         });
 
-        it("falls back to a link when reopening is blocked", () => {
-            const { launcher, states, openTab } = createLauncherWithOpenReview();
+        it("keeps the open tab and falls back to a link when reopening is blocked", () => {
+            const { launcher, states, openTab, tab } = createLauncherWithOpenReview();
             openTab.mockImplementation(() => null);
 
             launcher.start("t1", accepted());
 
+            expect(tab.close).not.toHaveBeenCalled();
             expect(states.get("t1")).toEqual({ status: "ready", url });
+        });
+
+        describe("a review tab that outlived a page reload", () => {
+            // The browser answers the placeholder request with the still-open review tab.
+            function createLauncherWithExistingTab(timeoutMs?: number) {
+                const tab = createTab();
+                tab.location.href = url;
+                return {
+                    ...createLauncher(
+                        () => tab,
+                        timeoutMs,
+                        () => false
+                    ),
+                    tab,
+                };
+            }
+
+            it("keeps it open when the start fails", () => {
+                const { launcher, states, tab } = createLauncherWithExistingTab();
+
+                launcher.start("t1", accepted());
+                launcher.handleFailed("t1", "crit exited");
+
+                expect(tab.close).not.toHaveBeenCalled();
+                expect(states.get("t1")).toEqual({ status: "failed", reason: "crit exited" });
+            });
+
+            it("keeps it open when the start times out", () => {
+                const { launcher, tab } = createLauncherWithExistingTab(1000);
+
+                launcher.start("t1", accepted());
+                vi.advanceTimersByTime(1000);
+
+                expect(tab.close).not.toHaveBeenCalled();
+            });
+
+            it("keeps it open when pending starts are cancelled by a reconnect", () => {
+                const { launcher, tab } = createLauncherWithExistingTab();
+
+                launcher.start("t1", accepted());
+                launcher.cancelAll();
+
+                expect(tab.close).not.toHaveBeenCalled();
+            });
+
+            it("reloads it when the review starts", () => {
+                const { launcher, states, tab } = createLauncherWithExistingTab();
+
+                launcher.start("t1", accepted());
+                tab.location.href = "http://host:9080/#scrolled";
+                launcher.handleStarted("t1", url);
+
+                expect(tab.location.href).toBe(url);
+                expect(states.has("t1")).toBe(false);
+            });
         });
 
         it("reopens a review whose first tab was blocked without restarting crit", () => {

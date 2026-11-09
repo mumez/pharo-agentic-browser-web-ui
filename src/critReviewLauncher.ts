@@ -2,6 +2,15 @@ export interface ReviewTab {
     closed: boolean;
     location: { href: string };
     close: () => void;
+    focus: () => void;
+}
+
+// A tab opened for a starting review. `isPlaceholder` is false when the browser handed back
+// a tab of the same name that already shows a review (e.g. after this page reloaded): that
+// tab belongs to the user and must not be closed when the start fails.
+export interface StartingTab {
+    tab: ReviewTab;
+    isPlaceholder: boolean;
 }
 
 export type CritReviewState =
@@ -10,11 +19,14 @@ export type CritReviewState =
     | { status: "failed"; reason: string };
 
 interface CritReviewLauncherOptions {
-    // Opens `url`, or a blank placeholder when it is empty, in the tab named `target`; the
-    // browser reuses a tab of that name when one is still open. Must be called synchronously
-    // from the click handler: browsers block window.open once the user gesture is gone, so
-    // the tab is opened before the server replies.
-    openTab: (url: string, target: string) => ReviewTab | null;
+    // Both open the tab named `target`, and the browser reuses a tab of that name when one
+    // is still open. Must be called synchronously from the click handler: browsers block
+    // window.open once the user gesture is gone, so the tab is opened before the server
+    // replies.
+    // Opens a blank placeholder, or answers the open tab of that name as it is.
+    openPlaceholderTab: (target: string) => StartingTab | null;
+    // Opens `url`, reloading the tab of that name in place when it is open.
+    openUrlTab: (url: string, target: string) => ReviewTab | null;
     onStateChange: (topicId: string, state: CritReviewState | null) => void;
     // Turns a rejected /crit/start request into the reason shown to the user.
     describeError: (err: unknown) => string;
@@ -32,7 +44,7 @@ const isHttpUrl = (url: string) => /^https?:\/\//i.test(url);
 export const reviewTabTarget = (topicId: string) => `crit-review-${topicId}`;
 
 interface PendingReview {
-    tab: ReviewTab | null;
+    starting: StartingTab | null;
     timer: ReturnType<typeof setTimeout>;
 }
 
@@ -58,16 +70,16 @@ export class CritReviewLauncher {
 
         const url = this.reviewUrls.get(topicId);
         if (url !== undefined) {
-            this.reopenReview(topicId, url);
+            this.openReviewTab(topicId, url);
             return true;
         }
 
-        const tab = this.options.openTab("", reviewTabTarget(topicId));
+        const starting = this.options.openPlaceholderTab(reviewTabTarget(topicId));
         const timer = setTimeout(
             () => this.handleFailed(topicId, "Crit review did not respond in time"),
             this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS
         );
-        const entry: PendingReview = { tab, timer };
+        const entry: PendingReview = { starting, timer };
         this.pending.set(topicId, entry);
         this.options.onStateChange(topicId, { status: "starting" });
         send().catch((err: unknown) => {
@@ -90,7 +102,7 @@ export class CritReviewLauncher {
             return;
         }
         this.reviewUrls.set(topicId, url);
-        const tab = this.take(topicId)?.tab ?? this.liveReviewTab(topicId);
+        const tab = this.take(topicId)?.starting?.tab ?? this.liveReviewTab(topicId);
 
         if (!tab || tab.closed || !this.tryNavigate(topicId, tab, url)) {
             // Popup blocked, closed by the user, or already given up on: fall back to a link.
@@ -104,12 +116,11 @@ export class CritReviewLauncher {
     openReady(topicId: string, url: string): boolean {
         if (!isHttpUrl(url)) return false;
         this.reviewUrls.set(topicId, url);
-        return this.reopenReview(topicId, url);
+        return this.openReviewTab(topicId, url);
     }
 
     handleFailed(topicId: string, reason: string) {
-        const tab = this.take(topicId)?.tab;
-        if (tab && !tab.closed) tab.close();
+        this.closePlaceholder(this.take(topicId));
         this.reviewUrls.delete(topicId);
         this.options.onStateChange(topicId, { status: "failed", reason });
     }
@@ -117,7 +128,7 @@ export class CritReviewLauncher {
     cancel(topicId: string) {
         const entry = this.take(topicId);
         if (!entry) return;
-        if (entry.tab && !entry.tab.closed) entry.tab.close();
+        this.closePlaceholder(entry);
         this.options.onStateChange(topicId, null);
     }
 
@@ -132,17 +143,17 @@ export class CritReviewLauncher {
         this.options.onStateChange(topicId, null);
     }
 
-    // Shows the review in a fresh tab of the topic's name, closing the old one first: the
-    // reload brings the review up to date, and unlike focus() on an existing tab, which
-    // browsers ignore, a newly opened tab comes to the front.
-    private reopenReview(topicId: string, url: string): boolean {
-        this.liveReviewTab(topicId)?.close();
-        this.reviewTabs.delete(topicId);
-        const tab = this.options.openTab(url, reviewTabTarget(topicId));
+    // Shows the review in the topic's named tab, reloading it in place when it is open so the
+    // review is up to date. The old tab is never closed first: if the browser blocks the
+    // open, the user keeps that tab and gets the link as well.
+    private openReviewTab(topicId: string, url: string): boolean {
+        const tab = this.options.openUrlTab(url, reviewTabTarget(topicId));
         if (!tab) {
             this.options.onStateChange(topicId, { status: "ready", url });
             return false;
         }
+        // Best effort: some browsers leave a reused background tab behind.
+        tab.focus();
         this.reviewTabs.set(topicId, tab);
         this.options.onStateChange(topicId, null);
         return true;
@@ -169,6 +180,11 @@ export class CritReviewLauncher {
             return null;
         }
         return tab;
+    }
+
+    private closePlaceholder(entry: PendingReview | undefined) {
+        const starting = entry?.starting;
+        if (starting?.isPlaceholder && !starting.tab.closed) starting.tab.close();
     }
 
     // Removes the pending entry; returns undefined when the topic has no pending start.
