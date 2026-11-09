@@ -166,13 +166,17 @@ export function AbProvider(props: { children: JSX.Element }) {
     });
 
     const critReviewLauncher = new CritReviewLauncher({
-        // The opener link stays intact: browsers refuse to navigate or focus a cross-origin
-        // tab without it, and the launcher reuses each topic's tab for later reviews.
-        openTab: () => {
-            const tab = window.open("", "_blank");
-            if (tab) {
-                tab.document.title = "Starting crit review...";
-                tab.document.body.textContent = "Starting crit review...";
+        // The opener link stays intact: browsers refuse to navigate or close a cross-origin
+        // tab without it, and only tabs in the same browsing context group are found by name.
+        openTab: (url, target) => {
+            const tab = window.open(url, target);
+            if (tab && !url) {
+                try {
+                    tab.document.title = "Starting crit review...";
+                    tab.document.body.textContent = "Starting crit review...";
+                } catch {
+                    // The named tab already shows a cross-origin review; keep it as is.
+                }
             }
             return tab;
         },
