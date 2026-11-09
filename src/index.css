@@ -1,5 +1,8 @@
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+    /* join's @scope rules trigger "Invalid empty selector" warnings in the CSS optimizer */
+    exclude: join;
+}
 
 @theme {
     --font-sans: "Outfit", sans-serif;
