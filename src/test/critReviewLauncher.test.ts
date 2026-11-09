@@ -8,7 +8,6 @@ import {
 
 function createTab(): ReviewTab & {
     close: ReturnType<typeof vi.fn>;
-    focus: ReturnType<typeof vi.fn>;
 } {
     const tab = {
         closed: false,
@@ -16,7 +15,6 @@ function createTab(): ReviewTab & {
         close: vi.fn(() => {
             tab.closed = true;
         }),
-        focus: vi.fn(),
     };
     return tab;
 }
@@ -317,20 +315,23 @@ describe("CritReviewLauncher", () => {
             expect(openTab).toHaveBeenCalledWith("", reviewTabTarget("t1"));
         });
 
-        it("reloads the review in its named tab without restarting crit", () => {
+        it("closes and reopens the review tab without restarting crit", () => {
+            const reopened = createTab();
             const { launcher, states, openTab, tab } = createLauncherWithOpenReview();
+            openTab.mockImplementation(() => reopened);
             const send = accepted();
 
             expect(launcher.start("t1", send)).toBe(true);
-            launcher.start("t1", send);
 
             expect(send).not.toHaveBeenCalled();
-            expect(tab.close).not.toHaveBeenCalled();
-            expect(tab.focus).toHaveBeenCalledTimes(2);
-            expect(openTab).toHaveBeenCalledTimes(2);
-            expect(openTab).toHaveBeenCalledWith(url, reviewTabTarget("t1"));
+            expect(tab.close).toHaveBeenCalledTimes(1);
+            expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
             expect(states.has("t1")).toBe(false);
             expect(launcher.isPending("t1")).toBe(false);
+
+            launcher.start("t1", send);
+            expect(reopened.close).toHaveBeenCalledTimes(1);
+            expect(send).not.toHaveBeenCalled();
         });
 
         it("reopens the review after the user closed its tab", () => {
@@ -344,13 +345,12 @@ describe("CritReviewLauncher", () => {
             expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
         });
 
-        it("keeps the open tab and falls back to a link when reopening is blocked", () => {
-            const { launcher, states, openTab, tab } = createLauncherWithOpenReview();
+        it("falls back to a link when reopening is blocked", () => {
+            const { launcher, states, openTab } = createLauncherWithOpenReview();
             openTab.mockImplementation(() => null);
 
             launcher.start("t1", accepted());
 
-            expect(tab.close).not.toHaveBeenCalled();
             expect(states.get("t1")).toEqual({ status: "ready", url });
         });
 

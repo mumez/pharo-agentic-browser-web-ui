@@ -2,7 +2,6 @@ export interface ReviewTab {
     closed: boolean;
     location: { href: string };
     close: () => void;
-    focus: () => void;
 }
 
 // A tab opened for a starting review. `isPlaceholder` is false when the browser handed back
@@ -25,7 +24,7 @@ interface CritReviewLauncherOptions {
     // replies.
     // Opens a blank placeholder, or answers the open tab of that name as it is.
     openPlaceholderTab: (target: string) => StartingTab | null;
-    // Opens `url`, reloading the tab of that name in place when it is open.
+    // Opens `url` in a tab of that name.
     openUrlTab: (url: string, target: string) => ReviewTab | null;
     onStateChange: (topicId: string, state: CritReviewState | null) => void;
     // Turns a rejected /crit/start request into the reason shown to the user.
@@ -143,17 +142,20 @@ export class CritReviewLauncher {
         this.options.onStateChange(topicId, null);
     }
 
-    // Shows the review in the topic's named tab, reloading it in place when it is open so the
-    // review is up to date. The old tab is never closed first: if the browser blocks the
-    // open, the user keeps that tab and gets the link as well.
+    // Shows the review in a fresh tab of the topic's name, closing the old one first: the
+    // reload brings the review up to date, and unlike focus() on an existing tab, which
+    // browsers mostly ignore, a newly opened tab comes to the front. Unsent input in the old
+    // tab is lost either way, as with any reload. If the browser blocks the open, the old
+    // tab is already gone and the ready link takes its place; one window.open per click is
+    // normally allowed.
     private openReviewTab(topicId: string, url: string): boolean {
+        this.liveReviewTab(topicId)?.close();
+        this.reviewTabs.delete(topicId);
         const tab = this.options.openUrlTab(url, reviewTabTarget(topicId));
         if (!tab) {
             this.options.onStateChange(topicId, { status: "ready", url });
             return false;
         }
-        // Best effort: some browsers leave a reused background tab behind.
-        tab.focus();
         this.reviewTabs.set(topicId, tab);
         this.options.onStateChange(topicId, null);
         return true;
