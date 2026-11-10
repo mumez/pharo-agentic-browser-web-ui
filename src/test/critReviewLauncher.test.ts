@@ -452,6 +452,49 @@ describe("CritReviewLauncher", () => {
             expect(send).toHaveBeenCalledTimes(1);
         });
 
+        it("starts crit again after the review was approved", () => {
+            const { launcher } = createLauncherWithOpenReview();
+            launcher.handleFinished("t1", "approved");
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).toHaveBeenCalledTimes(1);
+            expect(launcher.isPending("t1")).toBe(true);
+        });
+
+        it("drops the ready link of an approved review", () => {
+            const { launcher, states } = createLauncher(() => null);
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+            expect(states.get("t1")).toEqual({ status: "ready", url });
+
+            launcher.handleFinished("t1", "approved");
+
+            expect(states.has("t1")).toBe(false);
+        });
+
+        it("keeps a pending start when another client's review is approved", () => {
+            const { launcher, states } = createLauncher(createTab);
+            launcher.start("t1", accepted());
+
+            launcher.handleFinished("t1", "approved");
+
+            expect(launcher.isPending("t1")).toBe(true);
+            expect(states.get("t1")).toEqual({ status: "starting" });
+        });
+
+        it("reopens the review without restarting crit when it finished unresolved", () => {
+            const { launcher, openTab } = createLauncherWithOpenReview();
+            launcher.handleFinished("t1", "unresolved");
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).not.toHaveBeenCalled();
+            expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
+        });
+
         it("navigates the open tab when a result arrives without a pending start", () => {
             const { launcher, states, tab } = createLauncherWithOpenReview();
             tab.location.href = "http://host:9080/#scrolled";
