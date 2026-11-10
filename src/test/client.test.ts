@@ -650,4 +650,36 @@ describe("AbClient", () => {
         expect(onStarted).toHaveBeenCalledWith("t1", 9080, "http://192.168.1.10:9080/");
         expect(onFailed).toHaveBeenCalledWith("t2", "crit status failed (is crit on PATH?)");
     });
+
+    it("should handle push events for critReviewFinished", async () => {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const ws = MockWebSocket.lastInstance()!;
+
+        const onFinished = vi.fn();
+        client.onEvent("critReviewFinished", onFinished);
+
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "critReviewFinished",
+                topicId: "t1",
+                kind: "approved",
+                unresolvedCount: 0,
+            },
+        });
+        ws.simulateMessageFromServer({
+            type: "send",
+            address: "serverEventPushed",
+            body: {
+                event: "critReviewFinished",
+                topicId: "t2",
+                kind: "unresolved",
+                unresolvedCount: 3,
+            },
+        });
+
+        expect(onFinished).toHaveBeenNthCalledWith(1, "t1", "approved", 0);
+        expect(onFinished).toHaveBeenNthCalledWith(2, "t2", "unresolved", 3);
+    });
 });

@@ -20,6 +20,11 @@ export default function CritReviewControls() {
         return review?.status === "failed" ? review.reason : null;
     });
 
+    const critReviewResult = createMemo(() => {
+        const topicId = state.selectedTopicId;
+        return topicId ? state.critReviewResults[topicId] : undefined;
+    });
+
     const dismissSelectedCritReview = () => {
         const topicId = state.selectedTopicId;
         if (topicId) dismissCritReview(topicId);
@@ -85,6 +90,28 @@ export default function CritReviewControls() {
                         >
                             Open review ↗
                         </a>
+                    )}
+                </Show>
+                <Show when={critReviewResult()}>
+                    {(result) => (
+                        <Show
+                            when={result().kind === "approved"}
+                            fallback={
+                                <span
+                                    class="badge badge-warning badge-sm shrink-0"
+                                    title="Crit review finished with unresolved comments"
+                                >
+                                    {result().unresolvedCount} unresolved
+                                </span>
+                            }
+                        >
+                            <span
+                                class="badge badge-success badge-sm shrink-0"
+                                title="Crit review approved. Crit has stopped; Review starts it again."
+                            >
+                                Approved
+                            </span>
+                        </Show>
                     )}
                 </Show>
                 <Show when={critReviewError()}>

@@ -1,3 +1,5 @@
+import type { CritReviewFinishKind } from "./types";
+
 export interface ReviewTab {
     closed: boolean;
     location: { href: string };
@@ -50,9 +52,10 @@ interface PendingReview {
 export class CritReviewLauncher {
     private readonly options: CritReviewLauncherOptions;
     private pending = new Map<string, PendingReview>();
-    // The URL of each topic's started review. The server never stops crit, so later reviews
-    // reopen this URL instead of asking /crit/start again. Held only in memory, so a page
-    // reload forgets it and the next review starts crit through the server once more.
+    // The URL of each topic's started review. Crit keeps running until the review is
+    // approved, so later reviews reopen this URL instead of asking /crit/start again; an
+    // approval (handleFinished) drops it. Held only in memory, so a page reload forgets it
+    // and the next review starts crit through the server once more.
     private reviewUrls = new Map<string, string>();
     // The tab showing each topic's review, also forgotten on a page reload.
     private reviewTabs = new Map<string, ReviewTab>();
@@ -122,6 +125,16 @@ export class CritReviewLauncher {
         this.closePlaceholder(this.take(topicId));
         this.reviewUrls.delete(topicId);
         this.options.onStateChange(topicId, { status: "failed", reason });
+    }
+
+    // A review round finished. Pushed to every client, so it may concern another client's
+    // review. An approval ends crit: the saved URL and any ready link point at a stopped
+    // server, so drop them and let the next review start crit again. A pending start is
+    // left alone; its own result decides it. An unresolved finish keeps crit running.
+    handleFinished(topicId: string, kind: CritReviewFinishKind) {
+        if (kind !== "approved") return;
+        this.reviewUrls.delete(topicId);
+        if (!this.pending.has(topicId)) this.options.onStateChange(topicId, null);
     }
 
     cancel(topicId: string) {
