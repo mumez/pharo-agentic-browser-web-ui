@@ -124,7 +124,7 @@ export default function CritReviewControls() {
                         </span>
                     )}
                 </Show>
-                <Show when={critReviewUrl() || critReviewError()}>
+                <Show when={critReviewUrl() || critReviewError() || critReviewResult()}>
                     <button
                         class="btn btn-ghost btn-xs btn-circle shrink-0"
                         onClick={dismissSelectedCritReview}

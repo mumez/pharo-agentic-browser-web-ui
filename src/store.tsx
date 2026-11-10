@@ -352,6 +352,9 @@ export function AbProvider(props: { children: JSX.Element }) {
             "critReviewFinished",
             (topicId: string, kind: CritReviewFinishKind, unresolvedCount: number) => {
                 critReviewLauncher.handleFinished(topicId, kind);
+                // Like the launcher, leave a starting review alone: the finish belongs to an
+                // earlier round, and starting the review already cleared its badge.
+                if (critReviewLauncher.isPending(topicId)) return;
                 setState("critReviewResults", topicId, { kind, unresolvedCount });
             }
         );
@@ -589,7 +592,10 @@ export function AbProvider(props: { children: JSX.Element }) {
     const openReadyCritReview = (topicId: string, url: string) =>
         critReviewLauncher.openReady(topicId, url);
 
-    const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);
+    const dismissCritReview = (topicId: string) => {
+        critReviewLauncher.dismiss(topicId);
+        setState("critReviewResults", topicId, undefined);
+    };
 
     const resolveApproval = (messageId: string, optionId: string) => {
         if (!client || !state.selectedTopicId) return;
