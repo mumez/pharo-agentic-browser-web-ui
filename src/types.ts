@@ -153,6 +153,16 @@ export interface TopicAddedEvent {
     topic: TopicData;
 }
 
+export type CritReviewFinishKind = "approved" | "unresolved";
+
+// A crit review round finished. "approved" means crit has exited; unresolvedCount is 0 then.
+export interface CritReviewFinishedEvent {
+    event: "critReviewFinished";
+    topicId: string;
+    kind: CritReviewFinishKind;
+    unresolvedCount: number;
+}
+
 export interface TopicsUpdatedEvent {
     event: "topicsUpdated";
     requesterId: string;
@@ -165,4 +175,5 @@ export type ServerEvent =
     | ModeChangedEvent
     | CommandsChangedEvent
     | TopicAddedEvent
+    | CritReviewFinishedEvent
     | TopicsUpdatedEvent;

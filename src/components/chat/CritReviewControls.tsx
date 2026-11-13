@@ -2,7 +2,8 @@ import { createMemo, Show } from "solid-js";
 import { useAb } from "../../store";
 
 export default function CritReviewControls() {
-    const { state, selectedTopic, startCritReview, dismissCritReview } = useAb();
+    const { state, selectedTopic, startCritReview, openReadyCritReview, dismissCritReview } =
+        useAb();
 
     const critReview = createMemo(() => {
         const topicId = state.selectedTopicId;
@@ -17,6 +18,11 @@ export default function CritReviewControls() {
     const critReviewError = createMemo(() => {
         const review = critReview();
         return review?.status === "failed" ? review.reason : null;
+    });
+
+    const critReviewResult = createMemo(() => {
+        const topicId = state.selectedTopicId;
+        return topicId ? state.critReviewResults[topicId] : undefined;
     });
 
     const dismissSelectedCritReview = () => {
@@ -75,9 +81,37 @@ export default function CritReviewControls() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title={url()}
+                            onClick={(e) => {
+                                const topicId = state.selectedTopicId;
+                                if (topicId && openReadyCritReview(topicId, url())) {
+                                    e.preventDefault();
+                                }
+                            }}
                         >
                             Open review ↗
                         </a>
+                    )}
+                </Show>
+                <Show when={critReviewResult()}>
+                    {(result) => (
+                        <Show
+                            when={result().kind === "approved"}
+                            fallback={
+                                <span
+                                    class="badge badge-warning badge-sm shrink-0"
+                                    title="Crit review finished with unresolved comments"
+                                >
+                                    {result().unresolvedCount} unresolved
+                                </span>
+                            }
+                        >
+                            <span
+                                class="badge badge-success badge-sm shrink-0"
+                                title="Crit review approved. Crit has stopped; Review starts it again."
+                            >
+                                Approved
+                            </span>
+                        </Show>
                     )}
                 </Show>
                 <Show when={critReviewError()}>
@@ -90,7 +124,7 @@ export default function CritReviewControls() {
                         </span>
                     )}
                 </Show>
-                <Show when={critReviewUrl() || critReviewError()}>
+                <Show when={critReviewUrl() || critReviewError() || critReviewResult()}>
                     <button
                         class="btn btn-ghost btn-xs btn-circle shrink-0"
                         onClick={dismissSelectedCritReview}

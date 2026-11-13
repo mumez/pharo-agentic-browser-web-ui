@@ -24,6 +24,7 @@ import type {
     MessageData,
     ConfigOptionData,
     CommandData,
+    CritReviewFinishKind,
     TopicStatus,
     TopicSettings,
     WorkingDirectoryInfo,
@@ -41,6 +42,13 @@ interface AbState {
     modelOptions: ConfigOptionData | null;
     modeOptions: ConfigOptionData | null;
     critReviews: Record<string, CritReviewState | undefined>;
+    // The last finished crit review round of each topic, until the next review starts.
+    critReviewResults: Record<string, CritReviewResult | undefined>;
+}
+
+export interface CritReviewResult {
+    kind: CritReviewFinishKind;
+    unresolvedCount: number;
 }
 
 interface AbContextValue {
@@ -70,6 +78,7 @@ interface AbContextValue {
     setTopicSettings: (topicId: string, settings: Partial<TopicSettings>) => Promise<void>;
     saveApp: () => Promise<void>;
     startCritReview: (topicId: string) => void;
+    openReadyCritReview: (topicId: string, url: string) => boolean;
     dismissCritReview: (topicId: string) => void;
     clearError: () => void;
 }
@@ -104,6 +113,7 @@ export function AbProvider(props: { children: JSX.Element }) {
         modelOptions: null,
         modeOptions: null,
         critReviews: {},
+        critReviewResults: {},
     });
 
     let client: AbClient | null = null;
@@ -165,15 +175,21 @@ export function AbProvider(props: { children: JSX.Element }) {
     });
 
     const critReviewLauncher = new CritReviewLauncher({
-        openTab: () => {
-            const tab = window.open("", "_blank");
-            if (tab) {
-                tab.opener = null;
+        // The opener link stays intact: browsers refuse to navigate or close a cross-origin
+        // tab without it, and only tabs in the same browsing context group are found by name.
+        openPlaceholderTab: (target) => {
+            const tab = window.open("", target);
+            if (!tab) return null;
+            try {
                 tab.document.title = "Starting crit review...";
                 tab.document.body.textContent = "Starting crit review...";
+            } catch {
+                // The named tab already shows a cross-origin review; keep it as it is.
+                return { tab, isPlaceholder: false };
             }
-            return tab;
+            return { tab, isPlaceholder: true };
         },
+        openUrlTab: (url, target) => window.open(url, target),
         describeError: (err) => errMsg(err, "Failed to start crit review"),
         onStateChange: (topicId, critState) =>
             setState("critReviews", topicId, critState ?? undefined),
@@ -273,6 +289,7 @@ export function AbProvider(props: { children: JSX.Element }) {
 
         client.onEvent("topicRemoved", (topicId: string) => {
             setState("topics", (prev) => prev.filter((t) => t.topicId !== topicId));
+            setState("critReviewResults", topicId, undefined);
             if (untrack(() => state.selectedTopicId) === topicId) {
                 setHasNewMessage(false);
                 setState({ selectedTopicId: null, messages: [] });
@@ -330,6 +347,17 @@ export function AbProvider(props: { children: JSX.Element }) {
         client.onEvent("critReviewFailed", (topicId: string, reason: string) => {
             critReviewLauncher.handleFailed(topicId, reason);
         });
+
+        client.onEvent(
+            "critReviewFinished",
+            (topicId: string, kind: CritReviewFinishKind, unresolvedCount: number) => {
+                critReviewLauncher.handleFinished(topicId, kind);
+                // Like the launcher, leave a starting review alone: the finish belongs to an
+                // earlier round, and starting the review already cleared its badge.
+                if (critReviewLauncher.isPending(topicId)) return;
+                setState("critReviewResults", topicId, { kind, unresolvedCount });
+            }
+        );
 
         client.onEvent("modelChanged", (topicId: string, options: ConfigOptionData | null) => {
             if (untrack(() => state.selectedTopicId) === topicId) {
@@ -556,10 +584,18 @@ export function AbProvider(props: { children: JSX.Element }) {
         if (!client) return;
         const c = client;
         const host = window.location.hostname || "localhost";
-        critReviewLauncher.start(topicId, () => c.startCritReview(topicId, host));
+        if (critReviewLauncher.start(topicId, () => c.startCritReview(topicId, host))) {
+            setState("critReviewResults", topicId, undefined);
+        }
     };
 
-    const dismissCritReview = (topicId: string) => critReviewLauncher.dismiss(topicId);
+    const openReadyCritReview = (topicId: string, url: string) =>
+        critReviewLauncher.openReady(topicId, url);
+
+    const dismissCritReview = (topicId: string) => {
+        critReviewLauncher.dismiss(topicId);
+        setState("critReviewResults", topicId, undefined);
+    };
 
     const resolveApproval = (messageId: string, optionId: string) => {
         if (!client || !state.selectedTopicId) return;
@@ -600,6 +636,7 @@ export function AbProvider(props: { children: JSX.Element }) {
                 setTopicSettings,
                 saveApp,
                 startCritReview,
+                openReadyCritReview,
                 dismissCritReview,
                 clearError,
             }}

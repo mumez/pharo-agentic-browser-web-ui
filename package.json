@@ -1,7 +1,7 @@
 {
     "name": "pharo-agentic-browser-web-ui",
     "private": true,
-    "version": "0.9.0",
+    "version": "0.9.2",
     "type": "module",
     "scripts": {
         "dev": "vite",
@@ -15,16 +15,16 @@
     },
     "dependencies": {
         "ripple-st-client": "^0.2.3",
-        "solid-js": "^1.9.15"
+        "solid-js": "^1.9.18"
     },
     "devDependencies": {
-        "@tailwindcss/vite": "^4.3.0",
+        "@tailwindcss/vite": "^4.3.5",
         "@types/node": "^24.12.3",
         "@typescript-eslint/eslint-plugin": "^8.62.0",
         "@typescript-eslint/parser": "^8.62.0",
         "daisyui": "^5.7.50",
         "eslint": "^9.39.4",
-        "eslint-plugin-solid": "^0.14.5",
+        "eslint-plugin-solid": "^0.19.0",
         "jsdom": "^29.1.1",
         "prettier": "^3.8.4",
         "tailwindcss": "^4.3.0",
@@ -32,5 +32,8 @@
         "vite": "^8.0.12",
         "vite-plugin-solid": "^2.11.12",
         "vitest": "^4.1.8"
+    },
+    "allowScripts": {
+        "fsevents": false
     }
 }

@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CritReviewLauncher, type CritReviewState, type ReviewTab } from "../critReviewLauncher";
+import {
+    CritReviewLauncher,
+    type CritReviewState,
+    type ReviewTab,
+    reviewTabTarget,
+} from "../critReviewLauncher";
 
-function createTab(): ReviewTab & { close: ReturnType<typeof vi.fn> } {
+function createTab(): ReviewTab & {
+    close: ReturnType<typeof vi.fn>;
+} {
     const tab = {
         closed: false,
         location: { href: "about:blank" },
@@ -31,7 +38,13 @@ const flushPromises = async () => {
     await Promise.resolve();
 };
 
-function createLauncher(openTab: () => ReviewTab | null, timeoutMs?: number) {
+// `openTab` stands for both openers: url is "" for a placeholder. A placeholder request
+// answers a pre-existing review tab when `isPlaceholder` returns false for it.
+function createLauncher(
+    openTab: (url: string, target: string) => ReviewTab | null,
+    timeoutMs?: number,
+    isPlaceholder: (tab: ReviewTab) => boolean = () => true
+) {
     const states = new Map<string, CritReviewState>();
     const onStateChange = vi.fn((topicId: string, s: CritReviewState | null) => {
         if (s) states.set(topicId, s);
@@ -39,7 +52,11 @@ function createLauncher(openTab: () => ReviewTab | null, timeoutMs?: number) {
     });
     const openTabSpy = vi.fn(openTab);
     const launcher = new CritReviewLauncher({
-        openTab: openTabSpy,
+        openPlaceholderTab: (target) => {
+            const tab = openTabSpy("", target);
+            return tab ? { tab, isPlaceholder: isPlaceholder(tab) } : null;
+        },
+        openUrlTab: openTabSpy,
         onStateChange,
         describeError: (err) => (err as { message: string }).message,
         timeoutMs,
@@ -266,7 +283,7 @@ describe("CritReviewLauncher", () => {
         expect(onStateChange).not.toHaveBeenCalled();
     });
 
-    it("keeps a ready link until dismissed or restarted", () => {
+    it("keeps a ready link until dismissed", () => {
         const { launcher, states } = createLauncher(() => null);
 
         launcher.start("t1", accepted());
@@ -275,10 +292,255 @@ describe("CritReviewLauncher", () => {
 
         launcher.dismiss("t1");
         expect(states.has("t1")).toBe(false);
+    });
 
-        launcher.start("t1", accepted());
-        launcher.handleStarted("t1", "http://host:9080/");
-        launcher.start("t1", accepted());
-        expect(states.get("t1")).toEqual({ status: "starting" });
+    describe("one review tab per topic", () => {
+        const url = "http://host:9080/";
+
+        // A topic whose review is already showing in `tab`.
+        function createLauncherWithOpenReview(timeoutMs?: number) {
+            const tab = createTab();
+            const created = createLauncher(() => tab, timeoutMs);
+            created.launcher.start("t1", accepted());
+            created.launcher.handleStarted("t1", url);
+            created.openTab.mockClear();
+            return { ...created, tab };
+        }
+
+        it("opens the first review in the topic's named tab", () => {
+            const { launcher, openTab } = createLauncher(createTab);
+
+            launcher.start("t1", accepted());
+
+            expect(openTab).toHaveBeenCalledWith("", reviewTabTarget("t1"));
+        });
+
+        it("closes and reopens the review tab without restarting crit", () => {
+            const reopened = createTab();
+            const { launcher, states, openTab, tab } = createLauncherWithOpenReview();
+            openTab.mockImplementation(() => reopened);
+            const send = accepted();
+
+            expect(launcher.start("t1", send)).toBe(true);
+
+            expect(send).not.toHaveBeenCalled();
+            expect(tab.close).toHaveBeenCalledTimes(1);
+            expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
+            expect(states.has("t1")).toBe(false);
+            expect(launcher.isPending("t1")).toBe(false);
+
+            launcher.start("t1", send);
+            expect(reopened.close).toHaveBeenCalledTimes(1);
+            expect(send).not.toHaveBeenCalled();
+        });
+
+        it("reopens the review after the user closed its tab", () => {
+            const { launcher, openTab, tab } = createLauncherWithOpenReview();
+            tab.closed = true;
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).not.toHaveBeenCalled();
+            expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
+        });
+
+        it("falls back to a link when reopening is blocked", () => {
+            const { launcher, states, openTab } = createLauncherWithOpenReview();
+            openTab.mockImplementation(() => null);
+
+            launcher.start("t1", accepted());
+
+            expect(states.get("t1")).toEqual({ status: "ready", url });
+        });
+
+        describe("a review tab that outlived a page reload", () => {
+            // The browser answers the placeholder request with the still-open review tab.
+            function createLauncherWithExistingTab(timeoutMs?: number) {
+                const tab = createTab();
+                tab.location.href = url;
+                return {
+                    ...createLauncher(
+                        () => tab,
+                        timeoutMs,
+                        () => false
+                    ),
+                    tab,
+                };
+            }
+
+            it("keeps it open when the start fails", () => {
+                const { launcher, states, tab } = createLauncherWithExistingTab();
+
+                launcher.start("t1", accepted());
+                launcher.handleFailed("t1", "crit exited");
+
+                expect(tab.close).not.toHaveBeenCalled();
+                expect(states.get("t1")).toEqual({ status: "failed", reason: "crit exited" });
+            });
+
+            it("keeps it open when the start times out", () => {
+                const { launcher, tab } = createLauncherWithExistingTab(1000);
+
+                launcher.start("t1", accepted());
+                vi.advanceTimersByTime(1000);
+
+                expect(tab.close).not.toHaveBeenCalled();
+            });
+
+            it("keeps it open when pending starts are cancelled by a reconnect", () => {
+                const { launcher, tab } = createLauncherWithExistingTab();
+
+                launcher.start("t1", accepted());
+                launcher.cancelAll();
+
+                expect(tab.close).not.toHaveBeenCalled();
+            });
+
+            it("reloads it when the review starts", () => {
+                const { launcher, states, tab } = createLauncherWithExistingTab();
+
+                launcher.start("t1", accepted());
+                tab.location.href = "http://host:9080/#scrolled";
+                launcher.handleStarted("t1", url);
+
+                expect(tab.location.href).toBe(url);
+                expect(states.has("t1")).toBe(false);
+            });
+        });
+
+        it("reopens a review whose first tab was blocked without restarting crit", () => {
+            const tab = createTab();
+            const results: (ReviewTab | null)[] = [null, tab];
+            const { launcher, states, openTab } = createLauncher(() => results.shift() ?? null);
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+            launcher.dismiss("t1");
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).not.toHaveBeenCalled();
+            expect(openTab).toHaveBeenLastCalledWith(url, reviewTabTarget("t1"));
+            expect(states.has("t1")).toBe(false);
+        });
+
+        it("keeps a separate tab for each topic", () => {
+            const tab1 = createTab();
+            const tab2 = createTab();
+            const tabs = [tab1, tab2];
+            const { launcher, openTab } = createLauncher(() => tabs.shift() ?? null);
+
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+            launcher.start("t2", accepted());
+            launcher.handleStarted("t2", "http://host:9081/");
+
+            expect(openTab).toHaveBeenNthCalledWith(1, "", reviewTabTarget("t1"));
+            expect(openTab).toHaveBeenNthCalledWith(2, "", reviewTabTarget("t2"));
+            expect(tab1.location.href).toBe(url);
+            expect(tab2.location.href).toBe("http://host:9081/");
+        });
+
+        it("starts crit again after a failure", () => {
+            const { launcher } = createLauncherWithOpenReview();
+            launcher.handleFailed("t1", "crit exited");
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).toHaveBeenCalledTimes(1);
+        });
+
+        it("starts crit again after the review was approved", () => {
+            const { launcher } = createLauncherWithOpenReview();
+            launcher.handleFinished("t1", "approved");
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).toHaveBeenCalledTimes(1);
+            expect(launcher.isPending("t1")).toBe(true);
+        });
+
+        it("drops the ready link of an approved review", () => {
+            const { launcher, states } = createLauncher(() => null);
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+            expect(states.get("t1")).toEqual({ status: "ready", url });
+
+            launcher.handleFinished("t1", "approved");
+
+            expect(states.has("t1")).toBe(false);
+        });
+
+        it("keeps a pending start when another client's review is approved", () => {
+            const { launcher, states } = createLauncher(createTab);
+            launcher.start("t1", accepted());
+
+            launcher.handleFinished("t1", "approved");
+
+            expect(launcher.isPending("t1")).toBe(true);
+            expect(states.get("t1")).toEqual({ status: "starting" });
+        });
+
+        it("reopens the review without restarting crit when it finished unresolved", () => {
+            const { launcher, openTab } = createLauncherWithOpenReview();
+            launcher.handleFinished("t1", "unresolved");
+            const send = accepted();
+
+            launcher.start("t1", send);
+
+            expect(send).not.toHaveBeenCalled();
+            expect(openTab).toHaveBeenCalledExactlyOnceWith(url, reviewTabTarget("t1"));
+        });
+
+        it("navigates the open tab when a result arrives without a pending start", () => {
+            const { launcher, states, tab } = createLauncherWithOpenReview();
+            tab.location.href = "http://host:9080/#scrolled";
+
+            launcher.handleStarted("t1", url);
+
+            expect(tab.location.href).toBe(url);
+            expect(states.has("t1")).toBe(false);
+        });
+
+        it("falls back to a link when the tab refuses navigation", () => {
+            const tab = createTab();
+            Object.defineProperty(tab, "location", {
+                value: {
+                    set href(_value: string) {
+                        throw new DOMException("not allowed to navigate", "SecurityError");
+                    },
+                },
+            });
+            const { launcher, states } = createLauncher(() => tab);
+
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+
+            expect(states.get("t1")).toEqual({ status: "ready", url });
+        });
+
+        it("opens the fallback link in the topic's named tab", () => {
+            const tab = createTab();
+            const results: (ReviewTab | null)[] = [null, tab];
+            const { launcher, states, openTab } = createLauncher(() => results.shift() ?? null);
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+            expect(states.get("t1")).toEqual({ status: "ready", url });
+
+            expect(launcher.openReady("t1", url)).toBe(true);
+            expect(openTab).toHaveBeenLastCalledWith(url, reviewTabTarget("t1"));
+            expect(states.has("t1")).toBe(false);
+        });
+
+        it("lets the fallback link navigate on its own when no tab opens", () => {
+            const { launcher } = createLauncher(() => null);
+            launcher.start("t1", accepted());
+            launcher.handleStarted("t1", url);
+
+            expect(launcher.openReady("t1", url)).toBe(false);
+        });
     });
 });

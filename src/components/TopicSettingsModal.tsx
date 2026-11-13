@@ -112,10 +112,10 @@ export default function TopicSettingsModal(props: TopicSettingsModalProps) {
                             <label class="label-text text-sm opacity-70 mb-1">
                                 Initial prompt skill
                             </label>
-                            <div class="join w-full">
+                            <div class="flex w-full">
                                 <input
                                     type="text"
-                                    class="input input-bordered input-sm join-item w-full font-mono"
+                                    class="input input-bordered input-sm w-full font-mono rounded-r-none focus:z-10"
                                     placeholder="(none)"
                                     value={settings()?.initialPromptSkill ?? ""}
                                     onInput={(e) =>
@@ -124,7 +124,7 @@ export default function TopicSettingsModal(props: TopicSettingsModalProps) {
                                 />
                                 <button
                                     type="button"
-                                    class="btn btn-sm join-item"
+                                    class="btn btn-sm rounded-l-none -ml-px"
                                     title="Clear"
                                     aria-label="Clear initial prompt skill"
                                     disabled={!settings()?.initialPromptSkill}

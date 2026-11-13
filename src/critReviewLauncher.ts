@@ -1,7 +1,17 @@
+import type { CritReviewFinishKind } from "./types";
+
 export interface ReviewTab {
     closed: boolean;
     location: { href: string };
     close: () => void;
+}
+
+// A tab opened for a starting review. `isPlaceholder` is false when the browser handed back
+// a tab of the same name that already shows a review (e.g. after this page reloaded): that
+// tab belongs to the user and must not be closed when the start fails.
+export interface StartingTab {
+    tab: ReviewTab;
+    isPlaceholder: boolean;
 }
 
 export type CritReviewState =
@@ -10,9 +20,14 @@ export type CritReviewState =
     | { status: "failed"; reason: string };
 
 interface CritReviewLauncherOptions {
-    // Must be called synchronously from the click handler; browsers block window.open
-    // once the user gesture is gone, so the tab is opened before the server replies.
-    openTab: () => ReviewTab | null;
+    // Both open the tab named `target`, and the browser reuses a tab of that name when one
+    // is still open. Must be called synchronously from the click handler: browsers block
+    // window.open once the user gesture is gone, so the tab is opened before the server
+    // replies.
+    // Opens a blank placeholder, or answers the open tab of that name as it is.
+    openPlaceholderTab: (target: string) => StartingTab | null;
+    // Opens `url` in a tab of that name.
+    openUrlTab: (url: string, target: string) => ReviewTab | null;
     onStateChange: (topicId: string, state: CritReviewState | null) => void;
     // Turns a rejected /crit/start request into the reason shown to the user.
     describeError: (err: unknown) => string;
@@ -26,14 +41,24 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 
 const isHttpUrl = (url: string) => /^https?:\/\//i.test(url);
 
+// The window name of a topic's review tab, so every review of the topic lands in one tab.
+export const reviewTabTarget = (topicId: string) => `crit-review-${topicId}`;
+
 interface PendingReview {
-    tab: ReviewTab | null;
+    starting: StartingTab | null;
     timer: ReturnType<typeof setTimeout>;
 }
 
 export class CritReviewLauncher {
     private readonly options: CritReviewLauncherOptions;
     private pending = new Map<string, PendingReview>();
+    // The URL of each topic's started review. Crit keeps running until the review is
+    // approved, so later reviews reopen this URL instead of asking /crit/start again; an
+    // approval (handleFinished) drops it. Held only in memory, so a page reload forgets it
+    // and the next review starts crit through the server once more.
+    private reviewUrls = new Map<string, string>();
+    // The tab showing each topic's review, also forgotten on a page reload.
+    private reviewTabs = new Map<string, ReviewTab>();
 
     constructor(options: CritReviewLauncherOptions) {
         this.options = options;
@@ -41,15 +66,22 @@ export class CritReviewLauncher {
 
     // `send` issues the /crit/start request; a rejection (validation error, disconnect)
     // fails this attempt. The result itself arrives later via handleStarted/handleFailed.
+    // A topic whose review already started just reopens its review tab without `send`.
     start(topicId: string, send: () => Promise<unknown>): boolean {
         if (this.pending.has(topicId)) return false;
 
-        const tab = this.options.openTab();
+        const url = this.reviewUrls.get(topicId);
+        if (url !== undefined) {
+            this.openReviewTab(topicId, url);
+            return true;
+        }
+
+        const starting = this.options.openPlaceholderTab(reviewTabTarget(topicId));
         const timer = setTimeout(
             () => this.handleFailed(topicId, "Crit review did not respond in time"),
             this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS
         );
-        const entry: PendingReview = { tab, timer };
+        const entry: PendingReview = { starting, timer };
         this.pending.set(topicId, entry);
         this.options.onStateChange(topicId, { status: "starting" });
         send().catch((err: unknown) => {
@@ -71,27 +103,44 @@ export class CritReviewLauncher {
             this.handleFailed(topicId, `Invalid review URL: ${url}`);
             return;
         }
-        const tab = this.take(topicId);
+        this.reviewUrls.set(topicId, url);
+        const tab = this.take(topicId)?.starting?.tab ?? this.liveReviewTab(topicId);
 
-        if (tab && !tab.closed) {
-            tab.location.href = url;
-            this.options.onStateChange(topicId, null);
-        } else {
+        if (!tab || tab.closed || !this.tryNavigate(topicId, tab, url)) {
             // Popup blocked, closed by the user, or already given up on: fall back to a link.
             this.options.onStateChange(topicId, { status: "ready", url });
         }
     }
 
+    // Opens the "ready" fallback link's URL in the topic's review tab. Returns false when
+    // no tab could be opened, so the caller can let the link navigate on its own.
+    // Must be called synchronously from the click handler, like start.
+    openReady(topicId: string, url: string): boolean {
+        if (!isHttpUrl(url)) return false;
+        this.reviewUrls.set(topicId, url);
+        return this.openReviewTab(topicId, url);
+    }
+
     handleFailed(topicId: string, reason: string) {
-        const tab = this.take(topicId);
-        if (tab && !tab.closed) tab.close();
+        this.closePlaceholder(this.take(topicId));
+        this.reviewUrls.delete(topicId);
         this.options.onStateChange(topicId, { status: "failed", reason });
     }
 
+    // A review round finished. Pushed to every client, so it may concern another client's
+    // review. An approval ends crit: the saved URL and any ready link point at a stopped
+    // server, so drop them and let the next review start crit again. A pending start is
+    // left alone; its own result decides it. An unresolved finish keeps crit running.
+    handleFinished(topicId: string, kind: CritReviewFinishKind) {
+        if (kind !== "approved") return;
+        this.reviewUrls.delete(topicId);
+        if (!this.pending.has(topicId)) this.options.onStateChange(topicId, null);
+    }
+
     cancel(topicId: string) {
-        const tab = this.take(topicId);
-        if (tab === undefined) return;
-        if (tab && !tab.closed) tab.close();
+        const entry = this.take(topicId);
+        if (!entry) return;
+        this.closePlaceholder(entry);
         this.options.onStateChange(topicId, null);
     }
 
@@ -106,12 +155,59 @@ export class CritReviewLauncher {
         this.options.onStateChange(topicId, null);
     }
 
+    // Shows the review in a fresh tab of the topic's name, closing the old one first: the
+    // reload brings the review up to date, and unlike focus() on an existing tab, which
+    // browsers mostly ignore, a newly opened tab comes to the front. Unsent input in the old
+    // tab is lost either way, as with any reload. If the browser blocks the open, the old
+    // tab is already gone and the ready link takes its place; one window.open per click is
+    // normally allowed.
+    private openReviewTab(topicId: string, url: string): boolean {
+        this.liveReviewTab(topicId)?.close();
+        this.reviewTabs.delete(topicId);
+        const tab = this.options.openUrlTab(url, reviewTabTarget(topicId));
+        if (!tab) {
+            this.options.onStateChange(topicId, { status: "ready", url });
+            return false;
+        }
+        this.reviewTabs.set(topicId, tab);
+        this.options.onStateChange(topicId, null);
+        return true;
+    }
+
+    // Returns false when the browser refuses the navigation, leaving the state to the caller.
+    private tryNavigate(topicId: string, tab: ReviewTab, url: string): boolean {
+        try {
+            tab.location.href = url;
+        } catch {
+            this.reviewTabs.delete(topicId);
+            return false;
+        }
+        this.reviewTabs.set(topicId, tab);
+        this.options.onStateChange(topicId, null);
+        return true;
+    }
+
+    private liveReviewTab(topicId: string): ReviewTab | null {
+        const tab = this.reviewTabs.get(topicId);
+        if (!tab) return null;
+        if (tab.closed) {
+            this.reviewTabs.delete(topicId);
+            return null;
+        }
+        return tab;
+    }
+
+    private closePlaceholder(entry: PendingReview | undefined) {
+        const starting = entry?.starting;
+        if (starting?.isPlaceholder && !starting.tab.closed) starting.tab.close();
+    }
+
     // Removes the pending entry; returns undefined when the topic has no pending start.
-    private take(topicId: string): ReviewTab | null | undefined {
+    private take(topicId: string): PendingReview | undefined {
         const entry = this.pending.get(topicId);
         if (!entry) return undefined;
         clearTimeout(entry.timer);
         this.pending.delete(topicId);
-        return entry.tab;
+        return entry;
     }
 }

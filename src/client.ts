@@ -7,6 +7,7 @@ import type {
     TopicSettings,
     ConfigOptionData,
     CommandData,
+    CritReviewFinishKind,
     TopicStatus,
     WorkingDirectoryInfo,
     WorkingDirectoriesListResponse,
@@ -25,6 +26,11 @@ interface EventHandlerMap {
     topicsUpdated: (requesterId: string) => void;
     critReviewStarted: (topicId: string, port: number, url: string) => void;
     critReviewFailed: (topicId: string, reason: string) => void;
+    critReviewFinished: (
+        topicId: string,
+        kind: CritReviewFinishKind,
+        unresolvedCount: number
+    ) => void;
     approvalResolveFailed: (topicId: string, messageId: string, err: RippleError) => void;
 }
 
@@ -44,6 +50,8 @@ interface PushEventBody {
     port?: number;
     url?: string;
     reason?: string;
+    kind?: CritReviewFinishKind;
+    unresolvedCount?: number;
 }
 
 type OkResponse = { ok: boolean };
@@ -168,6 +176,10 @@ export class AbClient {
             const handlers = (this.eventHandlers.get("critReviewFailed") ??
                 []) as EventHandlerMap["critReviewFailed"][];
             handlers.forEach((fn) => fn(pb.topicId!, pb.reason ?? ""));
+        } else if (eventName === "critReviewFinished") {
+            const handlers = (this.eventHandlers.get("critReviewFinished") ??
+                []) as EventHandlerMap["critReviewFinished"][];
+            handlers.forEach((fn) => fn(pb.topicId!, pb.kind!, pb.unresolvedCount ?? 0));
         }
     }
 
